@@ -10,7 +10,7 @@ source = {
 description = {
     summary = "Fast-RCNN code for Torch7.",
     detailed = [[
-       Fast-RCNN implementation for Torch7. This package allows to train, test and implement an object detector.
+       Fast-RCNN implementation for Torch7. This package allows to train, test and implement an FRCNN object detector.
     ]],
     homepage = "https://github.com/farrajota/fast-rcnn",
     license = "BSD",

@@ -12,6 +12,7 @@ require 'image'
 require 'cutorch'
 require 'cunn'
 require 'cudnn'
+require 'inn'
 
 paths.dofile('code/ROIPooling.lua') -- this package requies the use of this layer for best accu performance
 

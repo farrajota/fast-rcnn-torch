@@ -160,12 +160,8 @@ return {
     saveDataParallel = saveDataParallel,
     loadDataParallel = loadDataParallel,
     
-    -- visualize detection results
-    visualize_detections = visualize_detections,
-    
     -- non-maximum suppression
-    nms2 = paths.dofile('nms.lua'),
-    nms = paths.dofile('nmsv2.lua'),
+    nms = paths.dofile('nms.lua'),
     
     -- bounding box transformations
     box_transform = paths.dofile('bbox_transform.lua'),
@@ -178,9 +174,6 @@ return {
     
     -- VOC eval functions
     voc_eval = paths.dofile('voc_eval.lua'),
-    
-    -- load matlab files
-    --loadmatlab = paths.dofile('loadmatlab.lua')
     
     -- convert a tds.hash/tds.vec into a table
     tds_to_table = tds_to_table,

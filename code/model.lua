@@ -230,7 +230,12 @@ local function CreateClassifier(roipool_width, roipool_height, num_feats_last_co
   local cls_reg_layer 
   if flag_train_bbox_regressor then
       local cls = nn.Linear(4096,nClasses+1)      --classifier
+      cls.weight:normal(0,0.001)
+      cls.bias:zero()
       local reg = nn.Linear(4096,(nClasses+1)*4)  --regressor
+      reg.weight:normal(0,0.001)
+      reg.bias:zero()
+      
       cls_reg_layer =  nn.ConcatTable():add(cls):add(reg)
   else
       cls_reg_layer = nn.Linear(4096,nClasses+1)

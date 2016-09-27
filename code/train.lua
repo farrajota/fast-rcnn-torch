@@ -16,12 +16,16 @@ local utils = paths.dofile('util/utils.lua')
 -- Load configs (data, model, criterion, optimState)
 --------------------------------------------------------------------------------
 
-local opt, rois_processed, model, criterion, optimStateFn = paths.dofile('configs.lua')(model, dataset, rois)
+local opt, rois_processed, model, criterion, optimStateFn, nEpochs, roi_means, roi_stds = paths.dofile('configs.lua')(model, dataset, rois)
 opt.model_params = modelParameters
 local lopt = opt
 
 -- save model parameters to experiment directory
 torch.save(opt.save .. '/model_parameters.t7', modelParameters)
+
+print('\n==========================')
+print('Optim method: ' .. opt.optMethod)
+print==========================')n')
 
 -- load torchnet package
 local tnt = require 'torchnet'
@@ -40,26 +44,6 @@ table.insert(classList, 'background')
 -- convert modules to a specified tensor type
 local function cast(x) return x:type(opt.dataType) end
 
--- set means, stds for the regressor layer normalization
-local roi_means = cast(torch.cat(rois_processed.train.means:view(-1,1), torch.ones(4,1), 1))
-local roi_stds = cast(torch.cat(rois_processed.train.stds:view(-1,1), torch.ones(4,1), 1))
-
-
---------------------------------------------------------------------------------
--- Test data generator
---------------------------------------------------------------------------------
---[[
-paths.dofile('data.lua')
-local loadData = SetupDataFn('train', rois_processed, opt)
-for i=1, 5011 do
-  xlua.progress(i,5011)
-local img, rois, labels, bbox_targets, loss_weights = loadData(i)
-end
-print(rois:min())
-os.exit()
-local conv = convertIdxRoiFn(rois)
-print('aqui')
---]]
 
 --------------------------------------------------------------------------------
 -- Setup data generator
@@ -148,10 +132,10 @@ local engine = tnt.OptimEngine()
 
 engine.hooks.onStartEpoch = function(state)
    if state.training then
-      print('\n**********************************************')
-      print(('*** Starting Train epoch %d/%d'):format(state.epoch+1, state.maxepoch))
-      print('**********************************************')
       state.config = optimStateFn(state.epoch+1)
+      print('\n**********************************************')
+      print(('*** Starting Train epoch %d/%d, LR=%.0e'):format(state.epoch+1, state.maxepoch, state.config.learningRate))
+      print('**********************************************')
    else
       print('\n**********************************************')
       print('*** Test the network ')
@@ -195,23 +179,6 @@ end
 -- join tables of tensors function
 local JoinTable = nn.JoinTable(1):float()
 
--- correct image idx sent to the roi boxes
-local function convertIdxRoiFn(boxes)
-  local out = boxes[{{},{1}}]:clone()
-  local idxID, idxVal = 0,0
-  out:apply(function(idx) 
-      if idxID~=idx then 
-          idxID=idx
-          idxVal=idxVal+1
-          return idxVal 
-      else 
-          return idxVal 
-      end 
-  end)
-  boxes[{{},{1}}]:copy(out)
-  return boxes
-end
-
 engine.hooks.onSample = function(state)
 
    -- resize input image tensor
@@ -225,11 +192,12 @@ engine.hooks.onSample = function(state)
    -- boxes
    local boxes = {}
    for i=1, #state.sample.input do
-     if opt.nGPU > 1 then
-        table.insert(boxes, torch.cat(torch.zeros(state.sample.input[i][2]:size(1)):fill(1), state.sample.input[i][2], 2))
-     else
-        table.insert(boxes, torch.cat(torch.zeros(state.sample.input[i][2]:size(1)):fill(i), state.sample.input[i][2], 2))
-     end
+     --if opt.nGPU > 1 then
+     --   table.insert(boxes, torch.cat(torch.zeros(state.sample.input[i][2]:size(1)):fill(1), state.sample.input[i][2], 2))
+     --else
+     --   table.insert(boxes, torch.cat(torch.zeros(state.sample.input[i][2]:size(1)):fill(i), state.sample.input[i][2], 2))
+     --end
+      table.insert(boxes, torch.cat(torch.zeros(state.sample.input[i][2]:size(1)):fill(i), state.sample.input[i][2], 2))
    end
    -- join table of tensors into a single tensor
    boxes = JoinTable:forward(boxes):clone()
@@ -278,7 +246,6 @@ engine.hooks.onEndEpoch = function(state)
       meters:reset()
       
       -- store model
-      --torch.save(paths.concat(opt.save, 'model_fin.t7'),state.network)
       modelStorageFn(state.network.modules[1], state.config, state.epoch, roi_means, roi_stds, opt)
       state.t = 0
    end
@@ -287,7 +254,6 @@ end
 
 engine.hooks.onEnd = function(state)
    if not state.training then
-      --local ts = optim.ConfusionMatrix(opt.nClasses+1)
       local ts = optim.ConfusionMatrix(classList)
       ts.mat = meters.test_conf:value()
       print(ts)
@@ -316,7 +282,7 @@ engine:train{
    criterion = criterion,
    optimMethod = optim[opt.optMethod],
    config = optimStateFn(1),
-   maxepoch = opt.nEpochs
+   maxepoch = nEpochs
 }
 
 

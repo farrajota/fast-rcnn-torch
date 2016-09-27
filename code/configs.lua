@@ -15,15 +15,12 @@ local function LoadConfigs(model, dataset, rois)
 
   torch.setdefaulttensortype('torch.FloatTensor')
 
-  -- Project directory
-  paths.dofile('projectdir.lua')
-
 
   -------------------------------------------------------------------------------
   -- Process command line options
   -------------------------------------------------------------------------------
 
-  local opt, optimState, optimStateFn
+  local opt, optimState, optimStateFn, nEpochs
   if not opt then
 
     local opts = paths.dofile('options.lua')
@@ -51,7 +48,32 @@ local function LoadConfigs(model, dataset, rois)
     end
     
     -- define optim state function ()
-    optimStateFn = function(epoch) return optimState end
+    nEpochs = opt.nEpochs
+    if type(opt.schedule) == 'table' then
+        local schedule = opt.schedule
+        optimStateFn = function(epoch) 
+            for k, v in pairs(schedule) do
+                if v[1] <= epoch and v[2] >= epoch then
+                  return {
+                      learningRate = v[3],
+                      learningRateDecay = opt.LRdecay,
+                      momentum = opt.momentum,
+                      dampening = 0.0,
+                      weightDecay = v[4]
+                  }
+                end
+            end
+            return optimState
+        end
+        
+        -- determine the maximum number of epochs
+        for k, v in pairs(schedule) do
+          nEpochs = math.min(v[2], opt.nEpochs)
+        end
+        
+    else
+        optimStateFn = function(epoch) return optimState end
+    end
 
     -- Random number seed
     if opt.manualSeed ~= -1 then torch.manualSeed(opt.manualSeed)
@@ -84,6 +106,11 @@ local function LoadConfigs(model, dataset, rois)
   end
   opt.nClasses = #dataset.data.train.classLabel
 
+  -- set means, stds for the regressor layer normalization
+  local roi_means = torch.cat(rois_preprocessed.train.means:view(-1,1), torch.zeros(4,1), 1)
+  local roi_stds = torch.cat(rois_preprocessed.train.stds:view(-1,1), torch.ones(4,1), 1)
+
+
   -------------------------------------------------------------------------------
   -- Load criterion
   -------------------------------------------------------------------------------
@@ -100,12 +127,13 @@ local function LoadConfigs(model, dataset, rois)
       print('Running on GPU: num_gpus = [' .. opt.nGPU .. ']')
       require 'cutorch'
       require 'cunn'
+      opt.data_type = 'torch.CudaTensor'
       model:cuda()
       criterion:cuda()
     
       -- require cudnn if available
       if pcall(require, 'cudnn') then
-          cudnn.convert(model, cudnn):cuda()
+          --cudnn.convert(model, cudnn):cuda()
           cudnn.benchmark = true
           if opt.cudnn_deterministic then
               model:apply(function(m) if m.setMode then m:setMode(1,1,1) end end)
@@ -114,25 +142,36 @@ local function LoadConfigs(model, dataset, rois)
       end
   else
       print('Running on CPU')
+      opt.data_type = 'torch.FloatTensor'
       model:float()
       criterion:float()
+  end
+  
+  local function cast(x) return x:type(opt.data_type) end
+
+  -- normalize regressor
+  if model.regressor then
+      local regressor = model.regressor
+      roi_means = cast(roi_means)
+      roi_stds = cast(roi_stds)
+      regressor.weight = regressor.weight:cdiv(roi_stds:expandAs(regressor.weight))
+      regressor.bias = regressor.bias - roi_means:view(-1)
+      regressor.bias = regressor.bias:cdiv(roi_stds:view(-1))
   end
 
   -- Use multiple gpus
   if opt.GPU >= 1 and opt.nGPU > 1 then
     local utils = paths.dofile('util/utils.lua')
-    --modelOut:add(model) -- copy the entire model
-    --modelOut.modules[1].modules[1] = utils.makeDataParallelTable(model.modules[1], opt.nGPU)-- parallelize only the features layer
-    modelOut:add( utils.makeDataParallelTable(model, opt.nGPU))
+    modelOut:add(model) -- copy the entire model
+    modelOut.modules[1].modules[1] = utils.makeDataParallelTable(model.modules[1], opt.nGPU)-- parallelize only the features layer
+    --modelOut:add( utils.makeDataParallelTable(model, opt.nGPU))
   else
     modelOut:add(model)
   end
 
-  local function cast(x) return x:type(opt.data_type) end
-
   cast(modelOut)
-
-  return opt, rois_preprocessed, modelOut, criterion, optimStateFn
+  
+  return opt, rois_preprocessed, modelOut, criterion, optimStateFn, nEpochs, roi_means, roi_stds
 end
 
 ---------------------------------------------------------------------------------------------------------------------

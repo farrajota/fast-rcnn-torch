@@ -5,7 +5,6 @@
 
 function SetupDataFn(mode, rois_proprocessed, opts)
   
-  local utils = paths.dofile('util/utils.lua')
   local transform = paths.dofile('transform.lua')
   
   -- set local variables needed by the following functions
@@ -25,6 +24,13 @@ function SetupDataFn(mode, rois_proprocessed, opts)
   -- data transform/augment function
   local transformDataFn = transform(mode, opts)
 
+  -- utility function
+  local function logical2ind(logical)
+    if logical:numel() == 0 then
+      return torch.LongTensor()
+    end
+    return torch.range(1,logical:numel())[logical:gt(0)]:long()
+  end
   
   --------------------------------------------------------------------------------
   -- Select rois function
@@ -36,9 +42,9 @@ function SetupDataFn(mode, rois_proprocessed, opts)
     -- get overlap scores
     local overlaps = roi_data[idx].overlap_scores
     -- get fg/bg indexes
-    local fg_inds = utils.logical2ind(overlaps:ge(fg_thresh)) 
-    local bg_inds = utils.logical2ind(overlaps:ge(bg_thresh_low):cmul(overlaps:lt(bg_thresh_high)))
-    local bg_inds_no_overlap = utils.logical2ind(overlaps:eq(0)) 
+    local fg_inds = logical2ind(overlaps:ge(fg_thresh)) 
+    local bg_inds = logical2ind(overlaps:ge(bg_thresh_low):cmul(overlaps:lt(bg_thresh_high)))
+    local bg_inds_no_overlap = logical2ind(overlaps:eq(0)) 
     
     -- determine the number of positive and negative samples for this batch
     local cur_num_fg = math.min(num_fg_samples_per_image, fg_inds:numel())

@@ -4,7 +4,12 @@ FIND_PACKAGE(Torch REQUIRED)
 
 set(PKGNAME fastrcnn)
 
-INSTALL(DIRECTORY "code" DESTINATION "${Torch_INSTALL_LUA_PATH_SUBDIR}/${PKGNAME}/${dir}")
-install(FILES "init.lua" DESTINATION ${Torch_INSTALL_LUA_PATH_SUBDIR}/${PKGNAME}/${dir})
+file(GLOB_RECURSE luafiles RELATIVE "${CMAKE_CURRENT_SOURCE_DIR}" "*.lua")
 
+foreach(file ${luafiles})
+  get_filename_component(dir ${file} PATH)
+  install(FILES ${file} DESTINATION ${Torch_INSTALL_LUA_PATH_SUBDIR}/${PKGNAME}/${dir})
+endforeach()
+
+ADD_SUBDIRECTORY(lib)
 
