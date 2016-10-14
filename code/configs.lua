@@ -50,17 +50,25 @@ local function LoadConfigs(model, dataset, rois)
     -- define optim state function ()
     nEpochs = opt.nEpochs
     if type(opt.schedule) == 'table' then
-        local schedule = opt.schedule
+        -- setup schedule
+        local schedule = {}
+        local schedule_id = 0
+        for i=1, #opt.schedule do
+            table.insert(schedule, {schedule_id+1, schedule_id+opt.schedule[i][1], opt.schedule[i][2], opt.schedule[i][3]})
+            schedule_id = schedule_id+opt.schedule[i][1]
+        end
+        
         optimStateFn = function(epoch) 
             for k, v in pairs(schedule) do
                 if v[1] <= epoch and v[2] >= epoch then
-                  return {
-                      learningRate = v[3],
-                      learningRateDecay = opt.LRdecay,
-                      momentum = opt.momentum,
-                      dampening = 0.0,
-                      weightDecay = v[4]
-                  }
+                    return {
+                        learningRate = v[3],
+                        learningRateDecay = opt.LRdecay,
+                        momentum = opt.momentum,
+                        dampening = 0.0,
+                        weightDecay = v[4],
+                        end_schedule = (v[2]==epoch and 1) or 0
+                    }
                 end
             end
             return optimState
@@ -133,7 +141,7 @@ local function LoadConfigs(model, dataset, rois)
     
       -- require cudnn if available
       if pcall(require, 'cudnn') then
-          --cudnn.convert(model, cudnn):cuda()
+          cudnn.convert(model, cudnn):cuda()
           cudnn.benchmark = true
           if opt.cudnn_deterministic then
               model:apply(function(m) if m.setMode then m:setMode(1,1,1) end end)
@@ -164,12 +172,19 @@ local function LoadConfigs(model, dataset, rois)
     local utils = paths.dofile('util/utils.lua')
     modelOut:add(model) -- copy the entire model
     modelOut.modules[1].modules[1] = utils.makeDataParallelTable(model.modules[1], opt.nGPU)-- parallelize only the features layer
-    --modelOut:add( utils.makeDataParallelTable(model, opt.nGPU))
+    modelOut.modules[1].modules[3] = utils.makeDataParallelTable(model.modules[3], opt.nGPU)-- parallelize only the features layer
+    
+    --modelOut:add(utils.makeDataParallelTable(model, opt.nGPU))
   else
     modelOut:add(model)
   end
 
   cast(modelOut)
+  
+  if opt.verbose then
+      print('Network:')
+      print(modelOut)
+  end
   
   return opt, rois_preprocessed, modelOut, criterion, optimStateFn, nEpochs, roi_means, roi_stds
 end

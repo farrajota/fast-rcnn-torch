@@ -165,25 +165,20 @@ function SetupDataFn(mode, rois_proprocessed, opts)
     -- 2. Get roi boxes, labels and targets
     local boxes, labels, targets = SelectRoisFn(idx)
     
-    -- 3. Check if there are sufficient samples to cover the "batchSize" (needed for multi-gpu support) 
-    if boxes:size(1) < roi_per_image then
-      boxes, labels, targets = CheckBatchSize(boxes, labels, targets)
-    end
-    
-    -- 4. Get loss weights
+    -- 3. Get loss weights
     local loss_weights, bbox_targets = GetLossWeightsFn(targets)
     
-    -- 5. transform data
+    -- 4. transform data
     local img_transf, boxes_transf = transformDataFn(img, boxes)
     
-    -- 6. shuffle labes/boxes indexes
+    -- 5. shuffle labes/boxes indexes
     local random_indexes = torch.randperm(boxes_transf:size(1)):long()
     boxes_transf = boxes_transf:index(1, random_indexes)
     labels = labels:index(1, random_indexes)
     bbox_targets = bbox_targets:index(1, random_indexes)
     loss_weights = loss_weights:index(1, random_indexes)
     
-    -- 7. output data
+    -- 6. output data
     return img_transf, boxes_transf, labels, bbox_targets, loss_weights
   end
 

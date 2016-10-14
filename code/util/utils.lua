@@ -34,15 +34,17 @@ end
 
 ------------------------------------------------------------------------------------------------------------
 
-local function makeDataParallelTable(model, nGPU)
+local function makeDataParallelTable_old(model, nGPU)
    if nGPU > 1 then
       local gpus = torch.range(1, nGPU):totable()
       local fastest, benchmark = cudnn.fastest, cudnn.benchmark
 
-      local dpt = nn.DataParallelTable(1, true, true)
+      --local dpt = nn.DataParallelTable(1, true, true)
+      local dpt = nn.DataParallelTable(1)
          :add(model, gpus)
          :threads(function()
             require 'nngraph'
+            require 'inn'
             paths.dofile('../ROIPooling.lua')
             if pcall(require,'cudnn') then
                local cudnn = require 'cudnn'
@@ -55,6 +57,23 @@ local function makeDataParallelTable(model, nGPU)
    end
    return model
 end
+
+local function makeDataParallelTable(module, nGPU)
+  local nGPU = nGPU or 1
+  if nGPU > 1 then
+    local dpt = nn.DataParallelTable(1) -- true?
+    local cur_dev = cutorch.getDevice()
+    for i = 1, nGPU do
+      cutorch.setDevice(i)
+      dpt:add(module:clone():cuda(), i)
+    end
+    cutorch.setDevice(cur_dev)
+    return dpt
+  else
+    return nn.Sequential():add(module)
+  end
+end
+
 
 ------------------------------------------------------------------------------------------------------------
 

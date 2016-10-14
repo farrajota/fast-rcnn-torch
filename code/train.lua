@@ -25,7 +25,7 @@ torch.save(opt.save .. '/model_parameters.t7', modelParameters)
 
 print('\n==========================')
 print('Optim method: ' .. opt.optMethod)
-print==========================')n')
+print('==========================\n')
 
 -- load torchnet package
 local tnt = require 'torchnet'
@@ -94,7 +94,9 @@ end
 local meters = {
    train_conf = tnt.ConfusionMeter{k = opt.nClasses+1},
    train_err = tnt.AverageValueMeter(),
-   train_clerr = tnt.ClassErrorMeter{topk = {1},accuracy=true},
+   train_primary_err = tnt.AverageValueMeter(),
+   train_bbox_err = tnt.AverageValueMeter(),
+   train_clerr = tnt.ClassErrorMeter{topk = {1,5},accuracy=true},
    
    test_conf = tnt.ConfusionMeter{k = opt.nClasses+1},
    test_err = tnt.AverageValueMeter(),
@@ -105,6 +107,8 @@ local meters = {
 function meters:reset()
    self.train_conf:reset()
    self.train_err:reset()
+   self.train_primary_err:reset()
+   self.train_bbox_err:reset()
    self.train_clerr:reset()
    self.test_conf:reset()
    self.test_err:reset()
@@ -129,6 +133,8 @@ loggers.full_train.showPlot = false
 
 -- set up training engine:
 local engine = tnt.OptimEngine()
+--paths.dofile('fboptimengine.lua')
+--local engine = tnt.FBOptimEngine()
 
 engine.hooks.onStartEpoch = function(state)
    if state.training then
@@ -146,12 +152,20 @@ end
 
 engine.hooks.onForwardCriterion = function(state)
    if state.training then
-      xlua.progress((state.t+1)* opt.frcnn_imgs_per_batch, nItersTrain)
-      
       meters.train_conf:add(state.network.output[1],state.sample.target[1])
       meters.train_err:add(state.criterion.output)
+      meters.train_primary_err:add(state.criterion.criterions[1].output)
+      meters.train_bbox_err:add(state.criterion.criterions[2].output)
+       
       meters.train_clerr:add(state.network.output[1],state.sample.target[1])
       loggers.full_train:add{state.criterion.output}
+      
+      if opt.progressbar then
+          xlua.progress((state.t+1)* opt.frcnn_imgs_per_batch, nItersTrain)
+      else
+          print(string.format('epoch[%d/%d][%d/%d][batch=%d] -  loss: (total = %2.4f,  primary = %2.4f,  bbox = %2.4f);     accu: (top-1: %2.2f; top-5: %2.2f);   lr = %.0e',   
+          state.epoch+1, state.maxepoch, (state.t+1)* opt.frcnn_imgs_per_batch, nItersTrain, state.sample.target[1]:size(1), meters.train_err:value(), meters.train_primary_err:value(), meters.train_bbox_err:value(), meters.train_clerr:value{k = 1}, meters.train_clerr:value{k = 5}, state.config.learningRate))
+      end
       
    else
       xlua.progress(state.t*opt.nGPU, nItersTest)
@@ -192,11 +206,6 @@ engine.hooks.onSample = function(state)
    -- boxes
    local boxes = {}
    for i=1, #state.sample.input do
-     --if opt.nGPU > 1 then
-     --   table.insert(boxes, torch.cat(torch.zeros(state.sample.input[i][2]:size(1)):fill(1), state.sample.input[i][2], 2))
-     --else
-     --   table.insert(boxes, torch.cat(torch.zeros(state.sample.input[i][2]:size(1)):fill(i), state.sample.input[i][2], 2))
-     --end
       table.insert(boxes, torch.cat(torch.zeros(state.sample.input[i][2]:size(1)):fill(i), state.sample.input[i][2], 2))
    end
    -- join table of tensors into a single tensor
@@ -246,7 +255,7 @@ engine.hooks.onEndEpoch = function(state)
       meters:reset()
       
       -- store model
-      modelStorageFn(state.network.modules[1], state.config, state.epoch, roi_means, roi_stds, opt)
+      modelStorageFn(state.network.modules[1], state.config, state.epoch, state.maxepoch, roi_means, roi_stds, opt)
       state.t = 0
    end
 end

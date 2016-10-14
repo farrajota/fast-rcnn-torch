@@ -56,21 +56,21 @@ end
 
 ------------------------------------------------------------------------------------------------------------  
 
-local function storeModel(model, optimState, epoch, means, stds, opt)
+local function storeModel(model, optimState, epoch, maxepoch, means, stds, opt)
   
    -- store model snapshot
    if opt.snapshot > 0 then
-      if epoch%opt.snapshot == 0 then 
+      if epoch%opt.snapshot == 0 or epoch == maxepoch then 
          store(model, optimState, epoch, means, stds, opt, true)
       end
    
    elseif opt.snapshot < 0 then
-      if epoch%math.abs(opt.snapshot) == 0 then 
+      if epoch%math.abs(opt.snapshot) == 0 or epoch == maxepoch then 
          store(model, optimState, epoch, means, stds, opt, false)
       end
    else 
       -- save only at the last epoch
-      if epoch == opt.nEpochs then
+      if epoch == maxepoch then
          store(model, optimState, epoch, means, stds, opt, false)
       end
    end

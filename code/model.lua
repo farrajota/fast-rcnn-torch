@@ -29,9 +29,11 @@ local function loadAlexnetFeatures(pathModel)
   features:remove(features:size())
   features:remove(features:size())
   
+  --[[
   -- freeze the first layer (+ save gpu memory/computations when backprop)
   features.modules[1].accGradParameters = function() end
   features.modules[1].parameters = function() return nil end
+  --]]
   
   -- return features
   return features
@@ -116,6 +118,8 @@ local function loadResnetFeatures(pathModel)
   features.modules[1].accGradParameters = function() end
   features.modules[1].parameters = function() return nil end
   
+  features:add(nn.SpatialUpSamplingNearest(2))
+  
   -- return features
   return features
 end
@@ -152,17 +156,17 @@ local function LoadFeatures(modelName, path)
   local verbose = verbose or false
 
   local model_list = { 
-      alexnet     = 'alexnet.t7' ,
-      zeiler      = 'zeilernet.t7',
-      vgg16       = 'vgg16.t7',
-      vgg19       = 'vgg19.t7',
-      resnet18    = 'resnet-18.t7',
-      resnet32    = 'resnet-32.t7',
-      resnet50    = 'resnet-50.t7',
-      resnet101   = 'resnet-101.t7',
-      resnet152   = 'resnet-152.t7',
-      resnet200   = 'resnet-200.t7',
-      googlenetv3 = 'googlenet_inceptionv3_cudnn.t7'
+      ["alexnet"]     = 'alexnet.t7' ,
+      ["zeiler"]      = 'zeilernet.t7',
+      ["vgg16"]       = 'vgg16.t7',
+      ["vgg19"]       = 'vgg19.t7',
+      ["resnet-18"]   = 'resnet-18.t7',
+      ["resnet-32"]   = 'resnet-32.t7',
+      ["resnet-50"]   = 'resnet-50.t7',
+      ["resnet-101"]  = 'resnet-101.t7',
+      ["resnet-152"]  = 'resnet-152.t7',
+      ["resnet-200"]  = 'resnet-200.t7',
+      ["googlenetv3"] = 'googlenet_inceptionv3_cudnn.t7'
   }
   
   assert(model_list[string.lower(modelName)], 'Model not defined for loading: ' .. modelName .. '. Please select one of the following available models for load: alexnet | vgg16 | vgg19 | resnet-18 | resnet-34 | resnet-50 | resnet-101 | resnet-152 | resnet-200 | zeiler | googlenetv3.' )
@@ -178,6 +182,7 @@ local function LoadFeatures(modelName, path)
       elseif string.match(modelName, 'vgg') then
         return loadVGGFeatures(filename), parameters
       elseif string.match(modelName, 'resnet') then
+        parameters.stride = parameters.stride/2
         return loadResnetFeatures(filename), parameters
       elseif string.match(modelName, 'googlenet') then
         return loadGooglenetFeatures(filename), parameters
@@ -203,7 +208,8 @@ local function CreateROIPooler(roipool_width, roipool_height, feat_stride)
   assert(roipool_height)
   assert(feat_stride)
   
-  return nn.ROIPooling(roipool_width,roipool_height):setSpatialScale(1/feat_stride)
+  --return nn.ROIPooling(roipool_width,roipool_height):setSpatialScale(1/feat_stride)
+  return inn.ROIPooling(roipool_width,roipool_height):setSpatialScale(1/feat_stride)
 end
 
 ------------------------------------------------------------------------------------------------------
@@ -219,11 +225,11 @@ local function CreateClassifier(roipool_width, roipool_height, num_feats_last_co
   local fully_connected_layers = nn.Sequential()
   fully_connected_layers:add(nn.View(-1):setNumInputDims(3))
   fully_connected_layers:add(nn.Linear(num_feats_last_conv * roipool_width * roipool_height, 4096))
-  fully_connected_layers:add(nn.BatchNormalization(4096))
+  --fully_connected_layers:add(nn.BatchNormalization(4096))
   fully_connected_layers:add(nn.ReLU(true))
   fully_connected_layers:add(nn.Dropout(0.5))
   fully_connected_layers:add(nn.Linear(4096, 4096))
-  fully_connected_layers:add(nn.BatchNormalization(4096))
+  --fully_connected_layers:add(nn.BatchNormalization(4096))
   fully_connected_layers:add(nn.ReLU(true))
   fully_connected_layers:add(nn.Dropout(0.5))
   
@@ -278,18 +284,30 @@ local function CreateModel(featuresNet, parameters, nClasses, opt)
   local fully_connected_layers, cls_reg_layers = CreateClassifier(roipool_width, roipool_height, parameters.num_feats, nClasses, opt.train_bbox_regressor)
   
   -- (3) group parts into a single model
+  --[[
   local model = nn.Sequential()
       :add(nn.ParallelTable():add(featuresNet):add(nn.Identity()))
       :add(roipooler)
       :add(nn.Sequential()
           :add(fully_connected_layers)
           :add(cls_reg_layers))
+  --]]
+  
+  
+  local model = nn.Sequential()
+      :add(nn.ParallelTable():add(featuresNet):add(nn.Identity()))
+      :add(roipooler)
+      :add(fully_connected_layers)
+      :add(cls_reg_layers)
+  
+
   
   -- define a quick and easy lookup field for the regressor module
   if torch.type(cls_reg_layers) == 'nn.ConcatTable' then
       model.regressor = cls_reg_layers.modules[2]
   end
   
+  --[[
   if verbose then
       print('Features network:')
       if featuresNet:size() > 30 then
@@ -304,6 +322,7 @@ local function CreateModel(featuresNet, parameters, nClasses, opt)
       print('Classifier network:')
       print(cls_reg_layers)
   end
+  --]]
   
   return model, criterion
 end

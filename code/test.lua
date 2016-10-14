@@ -89,6 +89,7 @@ local function test(dataset, roi_proposals, model, modelParameters, opt)
       -- cycle all classes
       for iclass=1, nClasses do
         local scores = scores:select(2,iclass)
+       -- local scores = scores:select(2,iclass+1)
         local idx = torch.range(1,scores:numel()):long()
         local idx2 = scores:ge(thresh[iclass])
         idx = idx[idx2]
@@ -99,6 +100,8 @@ local function test(dataset, roi_proposals, model, modelParameters, opt)
             -- use bbox predictions
             local class_boxes = predicted_boxes[{{},{(iclass-1)*4+1,(iclass)*4}}]
             scored_boxes:narrow(2,1,4):index(class_boxes,1,idx)
+           -- local class_boxes = predicted_boxes[{{},{(iclass)*4+1,(iclass+1)*4}}]
+           -- scored_boxes:narrow(2,1,4):index(class_boxes,1,idx)
           else
             -- use rois
             scored_boxes:narrow(2,1,4):index(rois,1,idx)
@@ -114,26 +117,6 @@ local function test(dataset, roi_proposals, model, modelParameters, opt)
         else
           all_detections_boxes[iclass][ifile] = torch.FloatTensor()
         end
-        
-        --[[
-        -- do non-maximum suppression
-        local keep = utils.nms2(scored_boxes, nms_thresh)
-        
-         
-        -- select max_per_image boxes
-        if keep:numel()>0 then
-          local _,ord = torch.sort(scored_boxes:select(2,5):index(1,keep),true)
-          ord = ord:narrow(1,1,math.min(ord:numel(),max_per_image))
-          keep = keep:index(1,ord)
-          all_detections_boxes[iclass][ifile] = scored_boxes:index(1,keep)
-        else
-          all_detections_boxes[iclass][ifile] = torch.FloatTensor()
-        end
-          
-         toc = torch.toc(tic)
-        print('Elapsed time: ' .. toc)
-        print('k')
-        --]]
           
         -- do some prunning
         if ifile%1000 == 0 or ifile==nFiles then
