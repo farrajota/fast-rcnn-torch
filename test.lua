@@ -33,7 +33,7 @@ local function test(dataset, roi_proposals, model, modelParameters, opt)
   assert(opt)
   
   -- convert cudnn.BatchNorm modules to nn.BatchNorm (if any)
-  ConvertBNcudnn2nn(model)
+  utils.ConvertBNcudnn2nn(model)
   
   local ImageDetector = fastrcnn.Detector(model, opt, modelParameters)
   

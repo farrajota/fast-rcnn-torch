@@ -3,16 +3,15 @@
 ]]
 
 
-local function LoadConfigs(model, dataset, rois)
+local function LoadConfigs(model, dataset, rois, utils)
 
   -------------------------------------------------------------------------------
   -- Load necessary libraries and files
   -------------------------------------------------------------------------------
 
-  paths.dofile('WeightedSmoothL1Criterion.lua')
-  local modelFn = paths.dofile('model.lua')
   local roisFn = paths.dofile('rois.lua')
-
+  paths.dofile('WeightedSmoothL1Criterion.lua')
+  paths.dofile('BBoxNorm.lua')
   torch.setdefaulttensortype('torch.FloatTensor')
 
 
@@ -118,12 +117,21 @@ local function LoadConfigs(model, dataset, rois)
   local roi_means = torch.cat(rois_preprocessed.train.means:view(-1,1), torch.zeros(4,1), 1)
   local roi_stds = torch.cat(rois_preprocessed.train.stds:view(-1,1), torch.ones(4,1), 1)
 
+  -- store in hdf5 file
+
 
   -------------------------------------------------------------------------------
-  -- Load criterion
+  -- Setup criterion
   -------------------------------------------------------------------------------
 
-  local criterion = modelFn.CreateCriterion(opt.train_bbox_regressor)
+  local criterion
+  if opt.has_bbox_regressor then
+      criterion = nn.ParallelCriterion()
+          :add(nn.CrossEntropyCriterion(), 1)
+          :add(nn.WeightedSmoothL1Criterion(), 1)
+  else
+      criterion = nn.CrossEntropyCriterion()
+  end
   local modelOut = nn.Sequential()
 
 
@@ -156,6 +164,15 @@ local function LoadConfigs(model, dataset, rois)
   end
   
   local function cast(x) return x:type(opt.data_type) end
+  
+  -- add mean/std norm 
+  modelOut:add(model)
+  modelOut:add(nn.ParallelTable()
+      :add(nn.Identity())
+      :add(nn.BBoxNorm(rois_preprocessed.train.means:mean(), rois_preprocessed.train.stds:mean())))
+  
+  
+  
 
   -- normalize regressor
   if model.regressor then
@@ -166,24 +183,10 @@ local function LoadConfigs(model, dataset, rois)
       regressor.bias = regressor.bias - roi_means:view(-1)
       regressor.bias = regressor.bias:cdiv(roi_stds:view(-1))
   end
-
-  -- Use multiple gpus
-  if opt.GPU >= 1 and opt.nGPU > 1 then
-    local utils = paths.dofile('util/utils.lua')
-    modelOut:add(model) -- copy the entire model
-    modelOut.modules[1].modules[1] = utils.makeDataParallelTable(model.modules[1], opt.nGPU)-- parallelize only the features layer
-    modelOut.modules[1].modules[3] = utils.makeDataParallelTable(model.modules[3], opt.nGPU)-- parallelize only the features layer
-    
-    --modelOut:add(utils.makeDataParallelTable(model, opt.nGPU))
-  else
-    modelOut:add(model)
-  end
-
-  cast(modelOut)
   
   if opt.verbose then
       print('Network:')
-      print(modelOut)
+      print(model)
   end
   
   return opt, rois_preprocessed, modelOut, criterion, optimStateFn, nEpochs, roi_means, roi_stds

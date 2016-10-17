@@ -1,5 +1,5 @@
 --[[
-    Usefull utility functions for managing networks.
+    Model utility functions.
 ]]
 
 
@@ -34,31 +34,7 @@ end
 
 ------------------------------------------------------------------------------------------------------------
 
-local function makeDataParallelTable_old(model, nGPU)
-   if nGPU > 1 then
-      local gpus = torch.range(1, nGPU):totable()
-      local fastest, benchmark = cudnn.fastest, cudnn.benchmark
-
-      --local dpt = nn.DataParallelTable(1, true, true)
-      local dpt = nn.DataParallelTable(1)
-         :add(model, gpus)
-         :threads(function()
-            require 'nngraph'
-            require 'inn'
-            paths.dofile('../ROIPooling.lua')
-            if pcall(require,'cudnn') then
-               local cudnn = require 'cudnn'
-               cudnn.fastest, cudnn.benchmark = fastest, benchmark
-            end
-         end)
-      dpt.gradInput = nil
-
-      model = dpt:cuda()
-   end
-   return model
-end
-
-local function makeDataParallelTable(module, nGPU)
+local function makeDataParallel(module, nGPU)
   local nGPU = nGPU or 1
   if nGPU > 1 then
     local dpt = nn.DataParallelTable(1) -- true?
@@ -130,70 +106,96 @@ end
 
 ------------------------------------------------------------------------------------------------------------
 
-local function logical2ind(logical)
-  if logical:numel() == 0 then
-    return torch.LongTensor()
+local function ConvertBNcudnn2nn(net)
+  local function ConvertModule(net)
+    return net:replace(function(x)
+        if torch.type(x) == 'cudnn.BatchNormalization' then
+          return cudnn.convert(x, nn)
+        else
+          return x
+        end
+    end)
   end
-  return torch.range(1,logical:numel())[logical:gt(0)]:long()
+  net:apply(function(x) return ConvertModule(x) end)
 end
 
 ------------------------------------------------------------------------------------------------------------
 
-local function tds_to_table(input)
-  assert(input)
-  
-  ---------------------------------------------
-  local function convert_tds_to_table(input)
-    assert(input)
-    local out = {}
-    for k, v in pairs(input) do
-        out[k] = v
-    end
-    return out
+local function DisableFeatureBackprop(features, maxLayer)
+  local noBackpropModules = nn.Sequential()
+  for i = 1,maxLayer do
+    noBackpropModules:add(features.modules[1])
+    features:remove(1)
   end
-  ---------------------------------------------
+  features:insert(nn.NoBackprop(noBackpropModules), 1)
+end
+
+------------------------------------------------------------------------------------------------------------
+
+local function CreateClassifierBBoxRegressor(nHidden, nClasses, has_bbox_regressor)
   
-  if type(input) == 'table' then
-      return input
-  elseif type(input) == 'cdata' then
-      if string.lower(torch.type(input)) == 'tds.hash' or string.lower(torch.type(input)) == 'tds.hash' then
-          return convert_tds_to_table(input)
-      else
-          error('Input must be either a tds.hash, tds.vec or a table: ' .. torch.type(input))
-      end
+  assert(nHidden)
+  assert(nClasses)
+  
+  local classifier = nn.Linear(nHidden,nClasses+1)      --classifier
+  classifier.weight:normal(0,0.001)
+  classifier.bias:zero()
+  
+  local regressor = nn.Linear(nHidden,(nClasses+1)*4)  --regressor
+  regressor.weight:normal(0,0.001)
+  regressor.bias:zero()
+  
+  if has_bbox_regressor then
+      return nn.ConcatTable():add(classifier):add(regressor)
   else
-      error('Input must be either a tds.hash, tds.vec or a table: ' .. torch.type(input))
+      return classifier
+  end
+end
+
+------------------------------------------------------------------------------------------------------------
+
+local function AddBBoxNorm(meanstd)
+  return nn.ParallelTable()
+      :add(nn.Identity())
+      :add(nn.BBoxNorm(meanstd.mean, meanstd.std))
+end
+
+------------------------------------------------------------------------------------------------------------
+
+local function NormalizeBBoxRegr(model, meanstd)
+  if #model:findModules('nn.BBoxNorm') == 0 then
+    -- normalize the bbox regression
+    local regression_layer = model:get(#model.modules):get(2)
+    if torch.type(regression_layer) == 'nn.Sequential' then
+      regression_layer = regression_layer:get(#regression_layer.modules)
+    end
+    assert(torch.type(regression_layer) == 'nn.Linear')
+
+    local mean_hat = torch.repeatTensor(meanstd.mean,1,opt.num_classes):cuda()
+    local sigma_hat = torch.repeatTensor(meanstd.std,1,opt.num_classes):cuda()
+
+    regression_layer.weight:cdiv(sigma_hat:t():expandAs(regression_layer.weight))
+    regression_layer.bias:add(-mean_hat):cdiv(sigma_hat)
+
+    return AddBBoxNorm(model, meanstd)
   end
 end
 
 ------------------------------------------------------------------------------------------------------------
 
 return {
-    -- model initializations
     MSRinit = MSRinit,
     FCinit = FCinit,
     DisableBias = DisableBias,
     
     -- parallelize networks
-    makeDataParallelTable = makeDataParallelTable,
+    makeDataParallel = makeDataParallel,
     saveDataParallel = saveDataParallel,
     loadDataParallel = loadDataParallel,
     
-    -- non-maximum suppression
-    nms = paths.dofile('nms.lua'),
-    
-    -- bounding box transformations
-    box_transform = paths.dofile('bbox_transform.lua'),
-    
-    -- bounding box overlap
-    boxoverlap = paths.dofile('boxoverlap.lua'),
-    
-    -- other functions
-    logical2ind = logical2ind,
-    
-    -- VOC eval functions
-    voc_eval = paths.dofile('voc_eval.lua'),
-    
-    -- convert a tds.hash/tds.vec into a table
-    tds_to_table = tds_to_table,
+    ConvertBNcudnn2nn = ConvertBNcudnn2nn,
+    DisableFeatureBackprop = DisableFeatureBackprop,
+    CreateClassifierBBoxRegressor = CreateClassifierBBoxRegressor,
+    AddBBoxNorm = AddBBoxNorm,
+    NormalizeBBoxRegr = NormalizeBBoxRegr
 }

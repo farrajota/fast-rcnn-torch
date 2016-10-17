@@ -16,7 +16,7 @@ local utils = paths.dofile('util/utils.lua')
 -- Load configs (data, model, criterion, optimState)
 --------------------------------------------------------------------------------
 
-local opt, rois_processed, model, criterion, optimStateFn, nEpochs, roi_means, roi_stds = paths.dofile('configs.lua')(model, dataset, rois)
+local opt, rois_processed, model, criterion, optimStateFn, nEpochs, roi_means, roi_stds = paths.dofile('configs.lua')(model, dataset, rois, utils)
 opt.model_params = modelParameters
 local lopt = opt
 
@@ -163,8 +163,8 @@ engine.hooks.onForwardCriterion = function(state)
       if opt.progressbar then
           xlua.progress((state.t+1)* opt.frcnn_imgs_per_batch, nItersTrain)
       else
-          print(string.format('epoch[%d/%d][%d/%d][batch=%d] -  loss: (total = %2.4f,  primary = %2.4f,  bbox = %2.4f);     accu: (top-1: %2.2f; top-5: %2.2f);   lr = %.0e',   
-          state.epoch+1, state.maxepoch, (state.t+1)* opt.frcnn_imgs_per_batch, nItersTrain, state.sample.target[1]:size(1), meters.train_err:value(), meters.train_primary_err:value(), meters.train_bbox_err:value(), meters.train_clerr:value{k = 1}, meters.train_clerr:value{k = 5}, state.config.learningRate))
+          print(string.format('epoch[%d/%d][%d/%d][batch=%d] -  loss: (total = %2.4f,  classification = %2.4f,  bbox = %2.4f);     accu: (top-1: %2.2f; top-5: %2.2f);   lr = %.0e',   
+          state.epoch+1, state.maxepoch, (state.t+1)* opt.frcnn_imgs_per_batch, nItersTrain, state.sample.target[1]:size(1), state.criterion.output, state.criterion.criterions[1], state.criterion.criterions[2], meters.train_clerr:value{k = 1}, meters.train_clerr:value{k = 5}, state.config.learningRate))
       end
       
    else
@@ -255,7 +255,7 @@ engine.hooks.onEndEpoch = function(state)
       meters:reset()
       
       -- store model
-      modelStorageFn(state.network.modules[1], state.config, state.epoch, state.maxepoch, roi_means, roi_stds, opt)
+      modelStorageFn(state.network, state.config, state.epoch, state.maxepoch, roi_means, roi_stds, opt)
       state.t = 0
    end
 end

@@ -22,18 +22,18 @@ fastrcnn = {}
 paths.dofile('code/Detector.lua') 
 
 -- load setup/options functions
-fastrcnn.train = paths.dofile('code/train.lua')
-fastrcnn.test = paths.dofile('code/test.lua')
-fastrcnn.options = paths.dofile('code/options.lua')
-fastrcnn.utils = {
+fastrcnn.train = paths.dofile('train.lua')
+fastrcnn.test = paths.dofile('test.lua')
+fastrcnn.utils = paths.dofile('utils/init.lua') 
+--[[{
     visualize_detections = paths.dofile('code/util/visualize.lua'),
     model = {
-        setup = paths.dofile('code/model.lua'),
         store = paths.dofile('code/util/store.lua')
     },
     data = {
         loadmatlab = paths.dofile('code/util/loadmatlab.lua')
     }
 }
+]]
 
 return fastrcnn

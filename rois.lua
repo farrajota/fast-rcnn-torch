@@ -219,6 +219,7 @@ local function GetTargetsMeanStdFn(rois_data, nClasses)
   for ifile=1, #rois_data do
       local cur_targets = rois_data[ifile].targets[{{},{2,5}}]
       local cur_labels = rois_data[ifile].targets[{{},{1}}]
+      
       for c = 1, nClasses do
           local c_inds = logical2indFn(cur_labels:eq(c))
           if c_inds:numel()>0 then
