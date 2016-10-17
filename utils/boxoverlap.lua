@@ -5,7 +5,6 @@
 
 local function boxoverlap(a,b)
 -- source: https://github.com/fmassa/object-detection.torch/blob/master/utils.lua#L97
-  --local b = anno.objects[j]
   local b = b.xmin and {b.xmin,b.ymin,b.xmax,b.ymax} or b
     
   local x1 = a:select(2,1):clone()

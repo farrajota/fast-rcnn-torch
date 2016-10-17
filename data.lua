@@ -1,5 +1,7 @@
 --[[
-    Data loading/transformation functions. Loads an image and 'N' roi samples from the available dataset/rois data and outputs them alongisde with the labels, bbox shifts and the weight loss mask for optimization.
+    Data generation for batches of images. Returns a data iterator.
+    
+    Data loading/transformation functions. Loads an image and 'N' roi samples from the available dataset/rois data and outputs them alongisde with the labels, bbox shifts and the weight loss mask for optimization. 
 ]]
 
 
@@ -15,11 +17,17 @@ function SetupDataFn(mode, rois_proprocessed, opts)
   local roi_per_image = opts.frcnn_rois_per_img
   local num_fg_samples_per_image = opts.frcnn_num_fg_samples_per_image
   local bg_fraction = opts.frcnn_bg_fraction
+  local num_images_per_batch = opts.frcnn_imgs_per_batch
   
   local backgroundID = opts.frcnn_backgroundID
   local nClasses = opts.frcnn_nClasses
 
   local roi_data = rois_proprocessed[mode].data
+  local target_meanstd = rois_proprocessed[mode].meanstd
+  
+  -- number of files
+  local NFILES = #roi_data
+  local img_max_size = (mode=='train' and opts.frcnn_max_size) or (mode=='test' and opts.frcnn_test_max_size)
   
   -- data transform/augment function
   local transformDataFn = transform(mode, opts)
@@ -152,15 +160,29 @@ function SetupDataFn(mode, rois_proprocessed, opts)
     return boxes_new, labels_new, targets_new
   end
 
+
+  --------------------------------------------------------------------------------
+  -- Check batch size and padd tensor with existing fields
+  --------------------------------------------------------------------------------
+  
+  local function NormalizeBBoxTargets(targets, labels)
+    local num_targets = targets:size(1)
+    for i=1, num_targets do
+        if labels[i] <= nClasses then
+            targets[i]:add(-1,target_meanstd.mean):cdiv(target_meanstd.std)
+        end
+    end
+  end
+  
   
   --------------------------------------------------------------------------------
   -- Load data function
   --------------------------------------------------------------------------------
 
-  function loadData(idx)
+  local function loadData(idx)
     
     -- 1. Load image from file
-    local img = image.load(roi_data[idx].image_path)
+    local img = image.load(roi_data[idx].image_path, 3, 'float')
     
     -- 2. Get roi boxes, labels and targets
     local boxes, labels, targets = SelectRoisFn(idx)
@@ -171,19 +193,74 @@ function SetupDataFn(mode, rois_proprocessed, opts)
     -- 4. transform data
     local img_transf, boxes_transf = transformDataFn(img, boxes)
     
-    -- 5. shuffle labes/boxes indexes
+    -- 5. normalize targets
+    NormalizeBBoxTargets(bbox_targets, labels)
+    
+    -- 6. shuffle labes/boxes indexes
     local random_indexes = torch.randperm(boxes_transf:size(1)):long()
     boxes_transf = boxes_transf:index(1, random_indexes)
     labels = labels:index(1, random_indexes)
     bbox_targets = bbox_targets:index(1, random_indexes)
     loss_weights = loss_weights:index(1, random_indexes)
     
-    -- 6. output data
+    -- 7. output data
     return img_transf, boxes_transf, labels, bbox_targets, loss_weights
   end
 
+  
+  --------------------------------------------------------------------------------
+  -- Setup batch
+  --------------------------------------------------------------------------------
+  
+  function GetBatchSample()
+    
+    -- Load data samples
+    local data = {}
+    for i=1, num_images_per_batch do
+        local idx = torch.random(1, NFILES)
+        table.insert(data, {loadData(idx)})
+    end
+    
+    -- Concatenate data into tensors
+    --[[ get max size
+    local max_width, max_height = 0, 0
+    for i=1, num_images_per_batch do
+        max_width = math.max(max_width, data[i][1]:size(3))
+        max_height = math.max(max_height, data[i][1]:size(2))
+    end
+    --]]
+    
+    -- image
+    --local img = torch.FloatTensor(num_images_per_batch,3,max_height, max_width):fill(0)
+    local img = torch.FloatTensor(num_images_per_batch,3, img_max_size, img_max_size):fill(0)
+    for i=1, num_images_per_batch do
+        local im = data[i][1]
+        img[{i, {}, {1,im:size(2)}, {1,im:size(3)}}]:copy(im)
+    end
+
+    -- concatenate
+    local boxes, labels, bbox_targets, loss_weights
+    for i=1, num_images_per_batch do
+        if boxes then 
+            boxes = boxes:cat(torch.FloatTensor(data[i][2]:size(1)):fill(i):cat(data[i][2],2),1)
+            labels = labels:cat(data[i][3],1)
+            bbox_targets = bbox_targets:cat(data[i][4],1)
+            loss_weights = loss_weights:cat(data[i][5],1)
+        else
+            boxes = torch.FloatTensor(data[i][2]:size(1)):fill(i):cat(data[i][2],2)
+            labels = data[i][3]
+            bbox_targets = data[i][4]
+            loss_weights = data[i][5]
+        end
+    end
+    
+    collectgarbage()
+    
+    return {{img, boxes}, {labels, {bbox_targets, loss_weights}}}
+  end
+  
   --------------------------------------------------------------------------------
 
-  return loadData
+  return GetBatchSample
 
 end

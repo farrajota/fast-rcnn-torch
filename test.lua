@@ -5,22 +5,7 @@
 
 local ffi = require 'ffi'
 local tds = require 'tds'
-local utils = paths.dofile('util/utils.lua')
-
-------------------------------------------------------------------------------------------------
-
-local function ConvertBNcudnn2nn(net)
-  local function ConvertModule(net)
-    return net:replace(function(x)
-        if torch.type(x) == 'cudnn.BatchNormalization' then
-          return cudnn.convert(x, nn)
-        else
-          return x
-        end
-    end)
-  end
-  net:apply(function(x) return ConvertModule(x) end)
-end
+local utils = paths.dofile('utils/init.lua')
 
 ------------------------------------------------------------------------------------------------
 
@@ -35,7 +20,7 @@ local function test(dataset, roi_proposals, model, modelParameters, opt)
   -- convert cudnn.BatchNorm modules to nn.BatchNorm (if any)
   utils.ConvertBNcudnn2nn(model)
   
-  local ImageDetector = fastrcnn.Detector(model, opt, modelParameters)
+  local ImageDetector = fastrcnn.ImageDetector(model, opt, modelParameters)
   
   -- load roi boxes from file into memory
   local roi_boxes = roi_proposals.test

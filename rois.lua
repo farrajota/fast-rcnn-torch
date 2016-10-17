@@ -5,7 +5,7 @@
 
 local ffi = require 'ffi'
 local tds = require 'tds'
-local utils = paths.dofile('util/utils.lua')
+local utils = paths.dofile('utils/init.lua')
 local logical2indFn = utils.logical2ind
 
 -------------------------------------------------------------------------------------------------
@@ -143,7 +143,7 @@ local function ComputeROIOverlapsFn(roi_boxes, data, augment_percent, quantity)
           
           -- setup boxes storage
           rec.boxes = all_boxes
-          rec.class = torch.cat(gt_classes, torch.LongTensor(num_roi_boxes):fill(backgroundClassID), 1)
+          rec.class = torch.cat(gt_classes, torch.LongTensor(num_roi_boxes):fill(backgroundClassID), 1) --background class in last position
           
           -- setup image size and image filename
           rec.image_path = filename
@@ -269,6 +269,28 @@ end
 
 -------------------------------------------------------------------------------------------------
 
+local function ComputeMeanStdBBoxreg(rois_data, fg_thresh)
+  
+  local regression_values = {}
+  local subset_size = math.min(1000, #rois_data)
+
+  -- cycle all boxes
+  for ifile=1, subset_size do
+      local cur_targets = rois_data[ifile].targets[{{},{2,5}}]
+      local cur_overlap = rois_data[ifile].overlap_scores
+      local inds = logical2indFn(cur_overlap:ge(fg_thresh))
+      table.insert(regression_values, cur_targets:index(1,inds))
+  end
+  
+  -- convert to tensor
+  regression_values = torch.FloatTensor():cat(regression_values,1)
+  
+  -- output
+  return {mean = regression_values:mean(1), std = regression_values:std(1)}
+end
+
+-------------------------------------------------------------------------------------------------
+
 local function preprocessROIs(dataset, roi_data, fg_thresh, verbose)
   assert(dataset)
   assert(roi_data)
@@ -279,6 +301,7 @@ local function preprocessROIs(dataset, roi_data, fg_thresh, verbose)
   local nClasses = #dataset.data.train.classLabel
   local data = {}
   local means, stds
+  local meanstd
   for k, set in pairs({'train', 'test'}) do
       -- 1. Compute overlap, correspondences and targets
       if verbose then print('==> [1/3] Compute box overlaps and correspondences...') end
@@ -288,6 +311,7 @@ local function preprocessROIs(dataset, roi_data, fg_thresh, verbose)
       if verbose then print('==> [2/3] Compute box targets...') end
       AddROIDataTargetsFn(rois_data, fg_thresh)
       
+      --[[
       -- 3. Normalize targets wrt to the mean and std
       if set == 'train' then
           if verbose then print('==> [3/3] Compute means and stds for the targets and normalize them...') end
@@ -296,8 +320,15 @@ local function preprocessROIs(dataset, roi_data, fg_thresh, verbose)
           if verbose then print('==> [3/3] Normalize targets with pre-computed means and stds...') end
           NormalizeTargetsMeanStdFn(rois_data, nClasses, means, stds)
       end
+      --]]
       
-      data[set] = {data = rois_data, means = means, stds = stds}
+      -- 3. Compute bbox mean/std
+      if set == 'train' then
+          if verbose then print('==> [3/3] Compute means and stds for the targets ...') end
+          meanstd = ComputeMeanStdBBoxreg(rois_data, fg_thresh)
+      end
+      
+      data[set] = {data = rois_data, means = means, stds = stds, meanstd = meanstd}
   end
   
   return data

@@ -20,6 +20,9 @@ local function transform(mode, opts)
   local meanstd = {mean = opts.model_params.mean, std = opts.model_params.std}
   local colourspace = opts.model_params.colourspace
   local pixelscale = opts.model_params.pixel_scale
+  
+  -- roi proposals parameters
+  local roi_meanstd = opts.roi_meanstd
 
   -- data augment/normalization function
   return function (img, boxes)

@@ -4,11 +4,11 @@
 
 
 local transform = paths.dofile('transform.lua')
-local utils = paths.dofile('util/utils.lua')
+local utils = paths.dofile('utils/init.lua')
 
 ------------------------------------------------------------------------------------------------
 
-local detector = torch.class('fastrcnn.Detector')
+local detector = torch.class('fastrcnn.ImageDetector')
 
 function detector:__init(model, opt, model_parameters)
   

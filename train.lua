@@ -10,13 +10,13 @@ assert(rois)
 assert(model)
 assert(modelParameters)
 
-local utils = paths.dofile('util/utils.lua')
+local utils = paths.dofile('utils/init.lua')
   
 --------------------------------------------------------------------------------
 -- Load configs (data, model, criterion, optimState)
 --------------------------------------------------------------------------------
 
-local opt, rois_processed, model, criterion, optimStateFn, nEpochs, roi_means, roi_stds = paths.dofile('configs.lua')(model, dataset, rois, utils)
+local opt, rois_processed, model, criterion, optimStateFn, nEpochs, roi_meanstd = paths.dofile('configs.lua')(model, dataset, rois, utils)
 opt.model_params = modelParameters
 local lopt = opt
 
@@ -31,7 +31,7 @@ print('==========================\n')
 local tnt = require 'torchnet'
 
 -- set model storage function
-local modelStorageFn = paths.dofile('util/store.lua')
+local modelStorageFn = paths.dofile('utils/store.lua')
 
 -- set number of iterations
 local nItersTrain = #rois_processed.train.data
@@ -46,6 +46,22 @@ local function cast(x) return x:type(opt.dataType) end
 
 
 --------------------------------------------------------------------------------
+-- Test data generator
+--------------------------------------------------------------------------------
+--[[
+paths.dofile('data.lua')
+local loadData = SetupDataFn('train', rois_processed, opt)
+for i=1, 5011 do
+  xlua.progress(i,5011)
+local data = loadData(i)
+end
+print(rois:min())
+os.exit()
+local conv = convertIdxRoiFn(rois)
+print('aqui')
+--]]
+
+--------------------------------------------------------------------------------
 -- Setup data generator
 --------------------------------------------------------------------------------
 
@@ -53,35 +69,28 @@ local function getIterator(mode)
    return tnt.ParallelDatasetIterator{
       nthread = opt.nThreads,
       init    = function(threadid) 
-                  require 'torch'
-                  require 'torchnet'
-                  opt = lopt
-                  paths.dofile('data.lua')
-                  torch.manualSeed(threadid+opt.manualSeed)
+                    require 'torch'
+                    require 'torchnet'
+                    opt = lopt
+                    paths.dofile('data.lua')
+                    torch.manualSeed(threadid+opt.manualSeed)
                 end,
       closure = function()
          
-         local roi_data = rois_processed[mode].data
-         local loadData = SetupDataFn(mode, rois_processed, opt)
+          local roi_data = rois_processed[mode].data
+          local loadData = SetupDataFn(mode, rois_processed, opt)
          
-         local nIters = #roi_data
-         local batchSize = (mode == 'train' and opt.frcnn_imgs_per_batch) or (mode == 'test' and opt.nGPU)
+          local nIters = math.ceil(#roi_data/opt.frcnn_imgs_per_batch)
          
-         -- setup dataset iterator
-         local list_dataset = tnt.ListDataset{  -- replace this by your own dataset
-            list = torch.range(1, nIters):long(),
-            load = function(idx)
-                local img, rois, labels, bbox_targets, loss_weights = loadData(idx)
-                    return {
-                        input = {img, rois},
-                        target = {labels, {bbox_targets, loss_weights}}
-                    }
-            end
+          -- setup dataset iterator
+          local list_dataset = tnt.ListDataset{  -- replace this by your own dataset
+              list = torch.range(1, nIters):long(),
+              load = function(idx)
+                  return GetBatchSample()
+              end
           }
           
           return list_dataset
-            :shuffle()
-            :batch(batchSize, 'include-last')
       end,
    }
 end
@@ -133,8 +142,6 @@ loggers.full_train.showPlot = false
 
 -- set up training engine:
 local engine = tnt.OptimEngine()
---paths.dofile('fboptimengine.lua')
---local engine = tnt.FBOptimEngine()
 
 engine.hooks.onStartEpoch = function(state)
    if state.training then
@@ -163,8 +170,11 @@ engine.hooks.onForwardCriterion = function(state)
       if opt.progressbar then
           xlua.progress((state.t+1)* opt.frcnn_imgs_per_batch, nItersTrain)
       else
+          if (state.t+1)* opt.frcnn_imgs_per_batch == 20 then
+            aqui =1
+            end
           print(string.format('epoch[%d/%d][%d/%d][batch=%d] -  loss: (total = %2.4f,  classification = %2.4f,  bbox = %2.4f);     accu: (top-1: %2.2f; top-5: %2.2f);   lr = %.0e',   
-          state.epoch+1, state.maxepoch, (state.t+1)* opt.frcnn_imgs_per_batch, nItersTrain, state.sample.target[1]:size(1), state.criterion.output, state.criterion.criterions[1], state.criterion.criterions[2], meters.train_clerr:value{k = 1}, meters.train_clerr:value{k = 5}, state.config.learningRate))
+          state.epoch+1, state.maxepoch, (state.t+1)* opt.frcnn_imgs_per_batch, nItersTrain, state.sample.target[1]:size(1), state.criterion.output, state.criterion.criterions[1].output, state.criterion.criterions[2].output, meters.train_clerr:value{k = 1}, meters.train_clerr:value{k = 5}, state.config.learningRate))
       end
       
    else
@@ -184,9 +194,10 @@ engine.hooks.onForwardCriterion = function(state)
 end
 
 -- copy sample to GPU buffer:
+local samples = {}
 local inputs = {cast(torch.Tensor()), cast(torch.Tensor())}
 local targets = cast(torch.Tensor())
-if opt.train_bbox_regressor then
+if opt.has_bbox_regressor then
     targets = {cast(torch.Tensor()), {cast(torch.Tensor()), cast(torch.Tensor())}}
 end
 
@@ -195,6 +206,7 @@ local JoinTable = nn.JoinTable(1):float()
 
 engine.hooks.onSample = function(state)
 
+  --[[
    -- resize input image tensor
    if state.training then
       inputs[1]:resize(opt.frcnn_imgs_per_batch,3,opt.frcnn_max_size, opt.frcnn_max_size)
@@ -237,6 +249,20 @@ engine.hooks.onSample = function(state)
    
    state.sample.input  = inputs
    state.sample.target = targets
+  --]]
+   
+  --utils.CopySamplesDataToGPU(inputs, targets, state.sample)
+  --state.sample.input  = inputs
+  --state.sample.target = targets
+  
+  
+  cutorch.synchronize(); collectgarbage();
+  
+  utils.recursiveCast(samples, state.sample, 'torch.CudaTensor')
+
+  state.sample.input = samples[1]
+  state.sample.target = samples[2]
+
 end
 
 
@@ -255,7 +281,7 @@ engine.hooks.onEndEpoch = function(state)
       meters:reset()
       
       -- store model
-      modelStorageFn(state.network, state.config, state.epoch, state.maxepoch, roi_means, roi_stds, opt)
+      modelStorageFn(state.network.modules[1], state.config, state.epoch, state.maxepoch, roi_means, roi_stds, opt)
       state.t = 0
    end
 end

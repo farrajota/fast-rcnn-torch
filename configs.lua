@@ -114,10 +114,8 @@ local function LoadConfigs(model, dataset, rois, utils)
   opt.nClasses = #dataset.data.train.classLabel
 
   -- set means, stds for the regressor layer normalization
-  local roi_means = torch.cat(rois_preprocessed.train.means:view(-1,1), torch.zeros(4,1), 1)
-  local roi_stds = torch.cat(rois_preprocessed.train.stds:view(-1,1), torch.ones(4,1), 1)
-
-  -- store in hdf5 file
+  --local roi_means = torch.cat(rois_preprocessed.train.means:view(-1,1), torch.zeros(4,1), 1)
+  --local roi_stds = torch.cat(rois_preprocessed.train.stds:view(-1,1), torch.ones(4,1), 1)
 
 
   -------------------------------------------------------------------------------
@@ -169,11 +167,11 @@ local function LoadConfigs(model, dataset, rois, utils)
   modelOut:add(model)
   modelOut:add(nn.ParallelTable()
       :add(nn.Identity())
-      :add(nn.BBoxNorm(rois_preprocessed.train.means:mean(), rois_preprocessed.train.stds:mean())))
+      :add(nn.BBoxNorm(rois_preprocessed.train.meanstd.mean, rois_preprocessed.train.meanstd.std)))
   
+  cast(modelOut)
   
-  
-
+  --[[
   -- normalize regressor
   if model.regressor then
       local regressor = model.regressor
@@ -183,13 +181,14 @@ local function LoadConfigs(model, dataset, rois, utils)
       regressor.bias = regressor.bias - roi_means:view(-1)
       regressor.bias = regressor.bias:cdiv(roi_stds:view(-1))
   end
+  --]]
   
   if opt.verbose then
       print('Network:')
       print(model)
   end
   
-  return opt, rois_preprocessed, modelOut, criterion, optimStateFn, nEpochs, roi_means, roi_stds
+  return opt, rois_preprocessed, modelOut, criterion, optimStateFn, nEpochs, rois_preprocessed.train.meanstd
 end
 
 ---------------------------------------------------------------------------------------------------------------------
