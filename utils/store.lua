@@ -3,23 +3,13 @@
 ]]
 
 
-local utils = paths.dofile('init.lua')
+local utils = paths.dofile('model_utils.lua')
 
 ------------------------------------------------------------------------------------------------------------
 
-local function store(model, optimState, epoch, means, stds, opt, flag)
+local function store(model, optimState, epoch, opt, flag)
    local flag_optimize = flag_optimize or false
    local filename
-   
-   local tmp_regressor
-   if model.regressor then
-      -- undo normalization
-      if means then
-          tmp_regressor = model.regressor:clone()
-          model.regressor.weight = model.regressor.weight:cmul(stds:expand(model.regressor.weight:size()))
-          model.regressor.bias = model.regressor.bias:cmul(stds:view(-1)) + means:view(-1)
-      end
-   end
    
    if flag then
       filename = paths.concat(opt.save,'model_' .. epoch ..'.t7')
@@ -37,14 +27,6 @@ local function store(model, optimState, epoch, means, stds, opt, flag)
       
    end
    
-   if model.regressor then
-      if means then
-          tmp_regressor = model.regressor:clone()
-          model.regressor.weight = tmp_regressor.weight
-          model.regressor.bias = tmp_regressor.bias
-      end
-   end
-   
    -- make a symlink to the last trained model
    local filename_symlink = paths.concat(opt.save,'model_final.t7')
    if paths.filep(filename_symlink) then
@@ -56,22 +38,22 @@ end
 
 ------------------------------------------------------------------------------------------------------------  
 
-local function storeModel(model, optimState, epoch, maxepoch, means, stds, opt)
+local function storeModel(model, optimState, epoch, maxepoch, opt)
   
    -- store model snapshot
    if opt.snapshot > 0 then
       if epoch%opt.snapshot == 0 or epoch == maxepoch then 
-         store(model, optimState, epoch, means, stds, opt, true)
+         store(model, optimState, epoch, opt, true)
       end
    
    elseif opt.snapshot < 0 then
       if epoch%math.abs(opt.snapshot) == 0 or epoch == maxepoch then 
-         store(model, optimState, epoch, means, stds, opt, false)
+         store(model, optimState, epoch, opt, false)
       end
    else 
       -- save only at the last epoch
       if epoch == maxepoch then
-         store(model, optimState, epoch, means, stds, opt, false)
+         store(model, optimState, epoch, opt, false)
       end
    end
    

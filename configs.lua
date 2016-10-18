@@ -122,11 +122,13 @@ local function LoadConfigs(model, dataset, rois, utils)
   -- Setup criterion
   -------------------------------------------------------------------------------
 
+  paths.dofile('BBoxRegressionCriterion.lua')
   local criterion
   if opt.has_bbox_regressor then
       criterion = nn.ParallelCriterion()
           :add(nn.CrossEntropyCriterion(), 1)
-          :add(nn.WeightedSmoothL1Criterion(), 1)
+          --:add(nn.WeightedSmoothL1Criterion(), 1)
+          :add(nn.BBoxRegressionCriterion(), 1)
   else
       criterion = nn.CrossEntropyCriterion()
   end
@@ -164,11 +166,19 @@ local function LoadConfigs(model, dataset, rois, utils)
   local function cast(x) return x:type(opt.data_type) end
   
   -- add mean/std norm 
+  --
   modelOut:add(model)
   modelOut:add(nn.ParallelTable()
       :add(nn.Identity())
       :add(nn.BBoxNorm(rois_preprocessed.train.meanstd.mean, rois_preprocessed.train.meanstd.std)))
+  --
   
+  --[[
+  model:add(nn.ParallelTable()
+      :add(nn.Identity())
+      :add(nn.BBoxNorm(rois_preprocessed.train.meanstd.mean, rois_preprocessed.train.meanstd.std)))    
+    modelOut:add(model)
+  --]]
   cast(modelOut)
   
   --[[

@@ -103,7 +103,7 @@ end
 local meters = {
    train_conf = tnt.ConfusionMeter{k = opt.nClasses+1},
    train_err = tnt.AverageValueMeter(),
-   train_primary_err = tnt.AverageValueMeter(),
+   train_cls_err = tnt.AverageValueMeter(),
    train_bbox_err = tnt.AverageValueMeter(),
    train_clerr = tnt.ClassErrorMeter{topk = {1,5},accuracy=true},
    
@@ -116,7 +116,7 @@ local meters = {
 function meters:reset()
    self.train_conf:reset()
    self.train_err:reset()
-   self.train_primary_err:reset()
+   self.train_cls_err:reset()
    self.train_bbox_err:reset()
    self.train_clerr:reset()
    self.test_conf:reset()
@@ -161,7 +161,7 @@ engine.hooks.onForwardCriterion = function(state)
    if state.training then
       meters.train_conf:add(state.network.output[1],state.sample.target[1])
       meters.train_err:add(state.criterion.output)
-      meters.train_primary_err:add(state.criterion.criterions[1].output)
+      meters.train_cls_err:add(state.criterion.criterions[1].output)
       meters.train_bbox_err:add(state.criterion.criterions[2].output)
        
       meters.train_clerr:add(state.network.output[1],state.sample.target[1])
@@ -170,11 +170,17 @@ engine.hooks.onForwardCriterion = function(state)
       if opt.progressbar then
           xlua.progress((state.t+1)* opt.frcnn_imgs_per_batch, nItersTrain)
       else
-          if (state.t+1)* opt.frcnn_imgs_per_batch == 20 then
-            aqui =1
-            end
-          print(string.format('epoch[%d/%d][%d/%d][batch=%d] -  loss: (total = %2.4f,  classification = %2.4f,  bbox = %2.4f);     accu: (top-1: %2.2f; top-5: %2.2f);   lr = %.0e',   
-          state.epoch+1, state.maxepoch, (state.t+1)* opt.frcnn_imgs_per_batch, nItersTrain, state.sample.target[1]:size(1), state.criterion.output, state.criterion.criterions[1].output, state.criterion.criterions[2].output, meters.train_clerr:value{k = 1}, meters.train_clerr:value{k = 5}, state.config.learningRate))
+          if state.epoch+1 == 2 then
+            aqui = 1
+          end
+            
+          print(string.format('epoch[%d/%d][%d/%d][batch=%d] -  loss: (classification = %2.4f,  bbox = %2.4f);     accu: (top-1: %2.2f; top-5: %2.2f);   lr = %.0e',   
+          state.epoch+1, state.maxepoch, (state.t+1)* opt.frcnn_imgs_per_batch, nItersTrain, state.sample.target[1]:size(1), state.criterion.criterions[1].output, state.criterion.criterions[2].output, meters.train_clerr:value{k = 1}, meters.train_clerr:value{k = 5}, state.config.learningRate))
+        
+        --[[
+          print(string.format('epoch[%d/%d][%d/%d][batch=%d] -  loss: (classification = %2.4f,  bbox = %2.4f);     accu: (top-1: %2.2f; top-5: %2.2f);   lr = %.0e',   
+          state.epoch+1, state.maxepoch, (state.t+1)* opt.frcnn_imgs_per_batch, nItersTrain, state.sample.target[1]:size(1), meters.train_cls_err:value(), meters.train_bbox_err:value(), meters.train_clerr:value{k = 1}, meters.train_clerr:value{k = 5}, state.config.learningRate))
+          --]]
       end
       
    else
@@ -195,74 +201,20 @@ end
 
 -- copy sample to GPU buffer:
 local samples = {}
-local inputs = {cast(torch.Tensor()), cast(torch.Tensor())}
-local targets = cast(torch.Tensor())
-if opt.has_bbox_regressor then
-    targets = {cast(torch.Tensor()), {cast(torch.Tensor()), cast(torch.Tensor())}}
-end
+--local inputs = {cast(torch.Tensor()), cast(torch.Tensor())}
+--local targets = cast(torch.Tensor())
+--if opt.has_bbox_regressor then
+--    targets = {cast(torch.Tensor()), {cast(torch.Tensor()), cast(torch.Tensor())}}
+--end
+---- join tables of tensors function
+--local JoinTable = nn.JoinTable(1):float()
 
--- join tables of tensors function
-local JoinTable = nn.JoinTable(1):float()
 
 engine.hooks.onSample = function(state)
-
-  --[[
-   -- resize input image tensor
-   if state.training then
-      inputs[1]:resize(opt.frcnn_imgs_per_batch,3,opt.frcnn_max_size, opt.frcnn_max_size)
-   else
-      inputs[1]:resize(opt.nGPU,3,opt.frcnn_test_max_size, opt.frcnn_test_max_size)
-   end
-   
-   -- merge data from all batches into single tensors
-   -- boxes
-   local boxes = {}
-   for i=1, #state.sample.input do
-      table.insert(boxes, torch.cat(torch.zeros(state.sample.input[i][2]:size(1)):fill(i), state.sample.input[i][2], 2))
-   end
-   -- join table of tensors into a single tensor
-   boxes = JoinTable:forward(boxes):clone()
-   
-   for i=1, #state.sample.input do
-      inputs[1][{{i},{},{1,state.sample.input[i][1]:size(2)},{1,state.sample.input[i][1]:size(3)}}]:copy(state.sample.input[i][1])
-   end
-   inputs[2]:resize(boxes:size()):copy(boxes) -- img idxs need to be corrected
-   
-   if opt.train_bbox_regressor then
-      local labels, bbox_targets, loss_weights = {}, {}, {}
-      for i=1, #state.sample.input do
-         table.insert(labels, state.sample.target[i][1])
-         table.insert(bbox_targets, state.sample.target[i][2][1])
-         table.insert(loss_weights, state.sample.target[i][2][2])
-      end
-      -- join into tensors
-      labels = JoinTable:forward(labels):clone()
-      bbox_targets = JoinTable:forward(bbox_targets):clone()
-      loss_weights = JoinTable:forward(loss_weights)
-      
-      targets[1]:resize(labels:size()):copy(labels)
-      targets[2][1]:resize(bbox_targets:size()):copy(bbox_targets)
-      targets[2][2]:resize(loss_weights:size()):copy(loss_weights)
-   else
-      targets:resize(state.sample.target:size()):copy(state.sample.target)
-   end
-   
-   state.sample.input  = inputs
-   state.sample.target = targets
-  --]]
-   
-  --utils.CopySamplesDataToGPU(inputs, targets, state.sample)
-  --state.sample.input  = inputs
-  --state.sample.target = targets
-  
-  
   cutorch.synchronize(); collectgarbage();
-  
   utils.recursiveCast(samples, state.sample, 'torch.CudaTensor')
-
   state.sample.input = samples[1]
   state.sample.target = samples[2]
-
 end
 
 
@@ -281,7 +233,7 @@ engine.hooks.onEndEpoch = function(state)
       meters:reset()
       
       -- store model
-      modelStorageFn(state.network.modules[1], state.config, state.epoch, state.maxepoch, roi_means, roi_stds, opt)
+      modelStorageFn(state.network.modules[1], state.config, state.epoch, state.maxepoch, opt)
       state.t = 0
    end
 end

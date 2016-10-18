@@ -16,6 +16,8 @@ require 'inn'
 
 
 paths.dofile('ROIPooling.lua') -- this package requies the use of this layer for best accu performance
+--paths.dofile('BBoxNorm.lua') 
+--paths.dofile('NoBackprop.lua')
 
 fastrcnn = {}
 

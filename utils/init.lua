@@ -116,6 +116,61 @@ end
 
 ------------------------------------------------------------------------------------------------------------
 
+local function joinTable(input,dim)
+  local size = torch.LongStorage()
+  local is_ok = false
+  for i=1,#input do
+    local currentOutput = input[i]
+    if currentOutput:numel() > 0 then
+      if not is_ok then
+        size:resize(currentOutput:dim()):copy(currentOutput:size())
+        is_ok = true
+      else
+        size[dim] = size[dim] + currentOutput:size(dim)
+      end    
+    end
+  end
+  local output = input[1].new():resize(size)
+  local offset = 1
+  for i=1,#input do
+    local currentOutput = input[i]
+    if currentOutput:numel() > 0 then
+      output:narrow(dim, offset,
+                    currentOutput:size(dim)):copy(currentOutput)
+      offset = offset + currentOutput:size(dim)
+    end
+  end
+  return output
+end
+
+---------------------------------------------------------------------------------------------------------------------
+
+local function keep_top_k(boxes,top_k)
+-- source: https://github.com/fmassa/object-detection.torch/blob/master/utils.lua#L34
+  local X = joinTable(boxes,1)
+  if X:numel() == 0 then
+    return
+  end
+  local scores = X[{{},-1}]:sort(1,true)
+  local thresh = scores[math.min(scores:numel(),top_k)]
+  for i=1,#boxes do
+    local bbox = boxes[i]
+    if bbox:numel() > 0 then
+      local idx = torch.range(1,bbox:size(1)):long()
+      local keep = bbox[{{},-1}]:ge(thresh)
+      idx = idx[keep]
+      if idx:numel() > 0 then
+        boxes[i] = bbox:index(1,idx)
+      else
+        boxes[i]:resize()
+      end
+    end
+  end
+  return boxes, thresh
+end
+
+------------------------------------------------------------------------------------------------------------
+
 return {
     -- model utility functions
     model = paths.dofile('model_utils.lua'),
@@ -131,6 +186,10 @@ return {
     
     -- other functions
     logical2ind = logical2ind,
+    
+    -- eval fn
+    keep_top_k = keep_top_k,
+    joinTable = joinTable,
     
     -- VOC eval functions
     voc_eval = paths.dofile('voc_eval.lua'),

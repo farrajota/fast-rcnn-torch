@@ -133,6 +133,25 @@ function SetupDataFn(mode, rois_proprocessed, opts)
   
   
   --------------------------------------------------------------------------------
+  -- Reshape targets and normalize them
+  --------------------------------------------------------------------------------
+  --
+  local function ReshapeNormalizeTargetsFn(targets, meanstd)
+    local size = targets:size(1)
+    local targets_norm = torch.FloatTensor(size, (nClasses+1)*4):fill(0)
+    for i=1, size do
+        local label = targets[i][1]
+        if label > 0 then
+            local vals = targets_norm[i]:narrow(1,(label-1)*4 + 1,4)
+            vals:copy(targets[{{i},{2,5}}])
+            vals:add(-1,meanstd.mean):cdiv(meanstd.std)
+        end
+    end
+    return targets_norm
+  end
+  --
+  
+  --------------------------------------------------------------------------------
   -- Check batch size and padd tensor with existing fields
   --------------------------------------------------------------------------------
   
@@ -179,6 +198,7 @@ function SetupDataFn(mode, rois_proprocessed, opts)
   -- Load data function
   --------------------------------------------------------------------------------
 
+--[[
   local function loadData(idx)
     
     -- 1. Load image from file
@@ -206,11 +226,38 @@ function SetupDataFn(mode, rois_proprocessed, opts)
     -- 7. output data
     return img_transf, boxes_transf, labels, bbox_targets, loss_weights
   end
+  --]]
+  
+  local function loadData(idx)
+    
+    -- 1. Load image from file
+    local img = image.load(roi_data[idx].image_path, 3, 'float')
+    
+    -- 2. Get roi boxes, labels and targets
+    local boxes, labels, targets = SelectRoisFn(idx)
+    
+    -- 3. Reshape targets and normalize them
+    local bbox_targets = ReshapeNormalizeTargetsFn(targets, target_meanstd)
+    
+    -- 4. transform data
+    local img_transf, boxes_transf = transformDataFn(img, boxes)
+    
+    -- 5. shuffle labes/boxes indexes
+    local random_indexes = torch.randperm(boxes_transf:size(1)):long()
+    boxes_transf = boxes_transf:index(1, random_indexes)
+    labels = labels:index(1, random_indexes)
+    bbox_targets = bbox_targets:index(1, random_indexes)
+    
+    -- 7. output data
+    return img_transf, boxes_transf, labels, bbox_targets
+  end
 
   
   --------------------------------------------------------------------------------
   -- Setup batch
   --------------------------------------------------------------------------------
+  
+  
   
   function GetBatchSample()
     
@@ -239,24 +286,22 @@ function SetupDataFn(mode, rois_proprocessed, opts)
     end
 
     -- concatenate
-    local boxes, labels, bbox_targets, loss_weights
+    local boxes, labels, bbox_targets
     for i=1, num_images_per_batch do
         if boxes then 
             boxes = boxes:cat(torch.FloatTensor(data[i][2]:size(1)):fill(i):cat(data[i][2],2),1)
             labels = labels:cat(data[i][3],1)
             bbox_targets = bbox_targets:cat(data[i][4],1)
-            loss_weights = loss_weights:cat(data[i][5],1)
         else
             boxes = torch.FloatTensor(data[i][2]:size(1)):fill(i):cat(data[i][2],2)
             labels = data[i][3]
             bbox_targets = data[i][4]
-            loss_weights = data[i][5]
         end
     end
     
     collectgarbage()
     
-    return {{img, boxes}, {labels, {bbox_targets, loss_weights}}}
+    return {{img, boxes}, {labels, {labels, bbox_targets}}}
   end
   
   --------------------------------------------------------------------------------

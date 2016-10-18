@@ -17,7 +17,7 @@ local function test(dataset, roi_proposals, model, modelParameters, opt)
   assert(modelParameters)
   assert(opt)
   
-  -- convert BatchNormalizatation backend to nn
+  -- convert BatchNormalizatation backend to nn (if any)
   utils.ConvertBNcudnn2nn(model)
   
   local tester = fastrcnn.Tester(dataset, roi_proposals, model, modelParameters, opt.frcnn_test_mode or 'voc')
