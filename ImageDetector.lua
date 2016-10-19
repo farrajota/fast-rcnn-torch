@@ -63,7 +63,7 @@ function detector:detect(im, boxes) -- Detect objects in an image
   if type(outputs)=='table' then
       scores =  self._softmax:forward(outputs[1])
       predicted_boxes = utils.box_transform.TransformInv(boxes, outputs[2]:float(), im:size())
-     -- predicted_boxes = boxes:repeatTensor(1,21)
+    --predicted_boxes = boxes:repeatTensor(1,21)
   else
       scores =  self._softmax:forward(outputs)
       predicted_boxes = boxes

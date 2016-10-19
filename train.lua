@@ -173,14 +173,14 @@ engine.hooks.onForwardCriterion = function(state)
           if state.epoch+1 == 2 then
             aqui = 1
           end
-            
+            --[[
           print(string.format('epoch[%d/%d][%d/%d][batch=%d] -  loss: (classification = %2.4f,  bbox = %2.4f);     accu: (top-1: %2.2f; top-5: %2.2f);   lr = %.0e',   
           state.epoch+1, state.maxepoch, (state.t+1)* opt.frcnn_imgs_per_batch, nItersTrain, state.sample.target[1]:size(1), state.criterion.criterions[1].output, state.criterion.criterions[2].output, meters.train_clerr:value{k = 1}, meters.train_clerr:value{k = 5}, state.config.learningRate))
-        
-        --[[
+        --]]
+        --
           print(string.format('epoch[%d/%d][%d/%d][batch=%d] -  loss: (classification = %2.4f,  bbox = %2.4f);     accu: (top-1: %2.2f; top-5: %2.2f);   lr = %.0e',   
           state.epoch+1, state.maxepoch, (state.t+1)* opt.frcnn_imgs_per_batch, nItersTrain, state.sample.target[1]:size(1), meters.train_cls_err:value(), meters.train_bbox_err:value(), meters.train_clerr:value{k = 1}, meters.train_clerr:value{k = 5}, state.config.learningRate))
-          --]]
+          --
       end
       
    else

@@ -303,6 +303,8 @@ local function preprocessROIs(dataset, roi_data, fg_thresh, verbose)
   local means, stds
   local meanstd
   for k, set in pairs({'train', 'test'}) do
+      if verbose then print('Set: ' .. set) end
+    
       -- 1. Compute overlap, correspondences and targets
       if verbose then print('==> [1/3] Compute box overlaps and correspondences...') end
       local rois_data = ComputeROIOverlapsFn(roi_data[set], dataset.data[set], augment_percent or 1, quantity or 1)
@@ -329,6 +331,8 @@ local function preprocessROIs(dataset, roi_data, fg_thresh, verbose)
       end
       
       data[set] = {data = rois_data, means = means, stds = stds, meanstd = meanstd}
+      
+      if verbose then print('\n') end
   end
   
   return data

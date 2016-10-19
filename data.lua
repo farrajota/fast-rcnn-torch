@@ -116,16 +116,20 @@ function SetupDataFn(mode, rois_proprocessed, opts)
   -- Fetch loss weights
   --------------------------------------------------------------------------------
 
-  local function GetLossWeightsFn(targets)
-    local loss_weights = torch.ByteTensor(targets:size(1),(nClasses+1)*4):zero()
+  local function GetLossWeightsFn(targets, meanstd)
+    local loss_weights = torch.ByteTensor(targets:size(1),(nClasses+1)*4):fill(0)
     local labels = targets[{{},{1}}]
-    local bbox_targets = targets[{{},{2,5}}]
+    --local bbox_targets = targets[{{},{2,5}}]
+    local bbox_targets = torch.FloatTensor(targets:size(1),(nClasses+1)*4):fill(0)
     for i=1, bbox_targets:size(1) do
       -- select current class label id
       local cur_label = labels[i][1]
       -- check if the label does not belong to the background class
       if cur_label > 0 then
         loss_weights[{{i},{(cur_label-1)*4+1, cur_label*4}}] = 1
+        bbox_targets[{{i},{(cur_label-1)*4+1, cur_label*4}}]:copy(targets[{{i},{2,5}}])
+            :add(-1,target_meanstd.mean)
+            :cdiv(target_meanstd.std)
       end
     end
     return loss_weights, bbox_targets
@@ -207,27 +211,25 @@ function SetupDataFn(mode, rois_proprocessed, opts)
     -- 2. Get roi boxes, labels and targets
     local boxes, labels, targets = SelectRoisFn(idx)
     
-    -- 3. Get loss weights
+    -- 3. Get loss weights + normalize targets
     local loss_weights, bbox_targets = GetLossWeightsFn(targets)
     
     -- 4. transform data
     local img_transf, boxes_transf = transformDataFn(img, boxes)
     
-    -- 5. normalize targets
-    NormalizeBBoxTargets(bbox_targets, labels)
-    
-    -- 6. shuffle labes/boxes indexes
+    -- 5. shuffle labes/boxes indexes
     local random_indexes = torch.randperm(boxes_transf:size(1)):long()
     boxes_transf = boxes_transf:index(1, random_indexes)
     labels = labels:index(1, random_indexes)
     bbox_targets = bbox_targets:index(1, random_indexes)
     loss_weights = loss_weights:index(1, random_indexes)
     
-    -- 7. output data
+    -- 6. output data
     return img_transf, boxes_transf, labels, bbox_targets, loss_weights
   end
   --]]
   
+  --
   local function loadData(idx)
     
     -- 1. Load image from file
@@ -251,7 +253,7 @@ function SetupDataFn(mode, rois_proprocessed, opts)
     -- 7. output data
     return img_transf, boxes_transf, labels, bbox_targets
   end
-
+--
   
   --------------------------------------------------------------------------------
   -- Setup batch
@@ -286,16 +288,18 @@ function SetupDataFn(mode, rois_proprocessed, opts)
     end
 
     -- concatenate
-    local boxes, labels, bbox_targets
+    local boxes, labels, bbox_targets, loss_weights
     for i=1, num_images_per_batch do
         if boxes then 
             boxes = boxes:cat(torch.FloatTensor(data[i][2]:size(1)):fill(i):cat(data[i][2],2),1)
             labels = labels:cat(data[i][3],1)
             bbox_targets = bbox_targets:cat(data[i][4],1)
+            --loss_weights = loss_weights:cat(data[i][5],1)
         else
             boxes = torch.FloatTensor(data[i][2]:size(1)):fill(i):cat(data[i][2],2)
             labels = data[i][3]
             bbox_targets = data[i][4]
+            --loss_weights = data[i][5]
         end
     end
     
