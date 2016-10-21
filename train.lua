@@ -184,7 +184,7 @@ engine.hooks.onForwardCriterion = function(state)
       end
       
    else
-      xlua.progress(state.t*opt.nGPU, nItersTest)
+      xlua.progress((state.t+1)* opt.frcnn_imgs_per_batch, nItersTest)
       
       meters.test_conf:add(state.network.output[1],state.sample.target[1])
       meters.test_err:add(state.criterion.output)
@@ -224,7 +224,7 @@ engine.hooks.onEndEpoch = function(state)
       --local tr = optim.ConfusionMatrix(opt.nClasses+1)
       local tr = optim.ConfusionMatrix(classList)
       tr.mat = meters.train_conf:value()
-      print(tr)
+      if opt.printConfusion then print(tr) end
       
       -- measure loss and error:
       local tr_loss = meters.train_err:value()

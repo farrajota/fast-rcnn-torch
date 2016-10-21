@@ -11,7 +11,6 @@ local function LoadConfigs(model, dataset, rois, utils)
 
   local roisFn = paths.dofile('rois.lua')
   paths.dofile('WeightedSmoothL1Criterion.lua')
-  paths.dofile('BBoxNorm.lua')
   torch.setdefaulttensortype('torch.FloatTensor')
 
 
