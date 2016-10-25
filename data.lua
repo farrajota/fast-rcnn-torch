@@ -270,15 +270,6 @@ function SetupDataFn(mode, rois_proprocessed, opts)
         table.insert(data, {loadData(idx)})
     end
     
-    -- Concatenate data into tensors
-    --[[ get max size
-    local max_width, max_height = 0, 0
-    for i=1, num_images_per_batch do
-        max_width = math.max(max_width, data[i][1]:size(3))
-        max_height = math.max(max_height, data[i][1]:size(2))
-    end
-    --]]
-    
     -- image
     --local img = torch.FloatTensor(num_images_per_batch,3,max_height, max_width):fill(0)
     local img = torch.FloatTensor(num_images_per_batch,3, img_max_size, img_max_size):fill(0)

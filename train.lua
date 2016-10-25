@@ -34,8 +34,8 @@ local tnt = require 'torchnet'
 local modelStorageFn = paths.dofile('utils/store.lua')
 
 -- set number of iterations
-local nItersTrain = #rois_processed.train.data
-local nItersTest = #rois_processed.test.data
+local nItersTrain = opt.trainIters
+local nItersTest = dataset.data.test.filename:size(1)/opt.frcnn_imgs_per_batch
 
 -- classes
 local classList = utils.tds_to_table(dataset.data.train.classLabel)
@@ -80,10 +80,10 @@ local function getIterator(mode)
           local roi_data = rois_processed[mode].data
           local loadData = SetupDataFn(mode, rois_processed, opt)
          
-          local nIters = math.ceil(#roi_data/opt.frcnn_imgs_per_batch)
+          local nIters = (mode=='train' and nItersTrain) or nItersTest
          
           -- setup dataset iterator
-          local list_dataset = tnt.ListDataset{  -- replace this by your own dataset
+          local list_dataset = tnt.ListDataset{
               list = torch.range(1, nIters):long(),
               load = function(idx)
                   return GetBatchSample()
@@ -168,7 +168,7 @@ engine.hooks.onForwardCriterion = function(state)
       loggers.full_train:add{state.criterion.output}
       
       if opt.progressbar then
-          xlua.progress((state.t+1)* opt.frcnn_imgs_per_batch, nItersTrain)
+          xlua.progress(state.t+1, nItersTrain)
       else
           if state.epoch+1 == 2 then
             aqui = 1
@@ -184,7 +184,7 @@ engine.hooks.onForwardCriterion = function(state)
       end
       
    else
-      xlua.progress((state.t+1)* opt.frcnn_imgs_per_batch, nItersTest)
+      xlua.progress(state.t+1, nItersTest)
       
       meters.test_conf:add(state.network.output[1],state.sample.target[1])
       meters.test_err:add(state.criterion.output)
@@ -201,14 +201,6 @@ end
 
 -- copy sample to GPU buffer:
 local samples = {}
---local inputs = {cast(torch.Tensor()), cast(torch.Tensor())}
---local targets = cast(torch.Tensor())
---if opt.has_bbox_regressor then
---    targets = {cast(torch.Tensor()), {cast(torch.Tensor()), cast(torch.Tensor())}}
---end
----- join tables of tensors function
---local JoinTable = nn.JoinTable(1):float()
-
 
 engine.hooks.onSample = function(state)
   cutorch.synchronize(); collectgarbage();
@@ -221,7 +213,6 @@ end
 engine.hooks.onEndEpoch = function(state)
    if state.training then
       print(('Train Loss: %0.5f; Acc: %0.5f'):format(meters.train_err:value(),  meters.train_clerr:value()[1]))
-      --local tr = optim.ConfusionMatrix(opt.nClasses+1)
       local tr = optim.ConfusionMatrix(classList)
       tr.mat = meters.train_conf:value()
       if opt.printConfusion then print(tr) end
@@ -243,7 +234,7 @@ engine.hooks.onEnd = function(state)
    if not state.training then
       local ts = optim.ConfusionMatrix(classList)
       ts.mat = meters.test_conf:value()
-      print(ts)
+      if opt.printConfusion then print(ts) end
       print("Test Loss" , meters.test_err:value())
       print("Accuracy: Top 1%", meters.test_clerr:value()[1])
       print("mean AP:",meters.ap:value():mean())

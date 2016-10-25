@@ -7,8 +7,8 @@ require 'image'
 local M = {}
 
 -- flip
-function M.HorizontalFlip(width)
-   return function(input)
+function M.HorizontalFlip()
+   return function(input, width)
       local out = input:clone()
       local tmp = out[{{},{1}}]:clone()
       out[{{},{1}}] = -(out[{{},{3}}]-width) + 1
@@ -62,8 +62,18 @@ function M.Scale_old(scales)
 end
 
 -- scale
-function M.Scale(scales)
+function M.Scale_prev(scales)
    return function(input)
+      -- source: https://github.com/mahyarnajibi/fast-rcnn-torch/blob/aaa0a33805a6ca761281bde7994900127d738daa/ROI/ROI.lua#L223-L238
+      local rois = input:clone()
+      rois:add(-1):mul(scales):add(1)
+      return rois
+   end
+end
+
+-- scale
+function M.Scale()
+   return function(input, scales)
       -- source: https://github.com/mahyarnajibi/fast-rcnn-torch/blob/aaa0a33805a6ca761281bde7994900127d738daa/ROI/ROI.lua#L223-L238
       local rois = input:clone()
       rois:add(-1):mul(scales):add(1)

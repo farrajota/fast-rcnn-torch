@@ -406,10 +406,12 @@ end
 
 function M.HorizontalFlip(prob)
    return function(input)
+      local is_flipped = false
       if torch.uniform() < prob then
          input = image.hflip(input)
+         is_flipped = true
       end
-      return input
+      return input, is_flipped
    end
 end
 
@@ -537,5 +539,15 @@ function M.collectgarbage()
         return input
     end
 end
+
+function M.PixelLimit()
+    return function(input)
+        local min = input:min()
+        local max = input:max()
+        input=input:add(-min):div(max-min)
+        return input
+    end
+end
+
 
 return M

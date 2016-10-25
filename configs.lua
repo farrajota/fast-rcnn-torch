@@ -74,7 +74,7 @@ local function LoadConfigs(model, dataset, rois, utils)
         
         -- determine the maximum number of epochs
         for k, v in pairs(schedule) do
-          nEpochs = math.min(v[2], opt.nEpochs)
+            nEpochs = math.min(v[2], opt.nEpochs)
         end
         
     else
@@ -115,6 +115,10 @@ local function LoadConfigs(model, dataset, rois, utils)
   -- set means, stds for the regressor layer normalization
   --local roi_means = torch.cat(rois_preprocessed.train.means:view(-1,1), torch.zeros(4,1), 1)
   --local roi_stds = torch.cat(rois_preprocessed.train.stds:view(-1,1), torch.ones(4,1), 1)
+
+  --if opt.verbose then print('Compute bbox regression mean/std values...') end
+  --self.bbox_regr = self:setupData()
+  --if opt.verbose then print('Done') end
 
 
   -------------------------------------------------------------------------------
