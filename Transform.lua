@@ -15,9 +15,9 @@ function Transform:__init(opt, mode)
     assert(mode)
     
     -- model
-    self.colourspace = opt.colourspace
-    self.pixel_scale = opt.pixel_scale
-    self.meanstd = opt.meanstd
+    self.colourspace = opt.model_param.colourspace
+    self.pixel_scale = opt.model_param.pixel_scale
+    self.meanstd = opt.model_param.meanstd
     
     -- frcnn options
     self.flip = (mode=='train' and opt.frcnn_hflip) or 0
@@ -33,7 +33,7 @@ function Transform:__init(opt, mode)
     self.PixelLimit = ti.PixelLimit()
     
     -- bbox transform functions
-    self.bbScale = tb.Scale()
+    self.bbScale = tb.Scale(self.max_size)
     self.bbHorizontalFlip = tb.HorizontalFlip()
 end
 
@@ -61,6 +61,10 @@ end
 
 
 function Transform:bbox(bboxes, im_scale, im_size, is_flipped)
+    if bboxes:sum() == 0 then
+        return bboxes
+    end
+      
     -- scale
     local bboxes_transf = self.bbScale(bboxes, im_scale)
     -- horizontal flip

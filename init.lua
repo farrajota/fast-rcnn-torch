@@ -14,12 +14,13 @@ require 'cunn'
 require 'cudnn'
 require 'inn'
 
+fastrcnn = {}
 
 paths.dofile('ROIPooling.lua') -- this package requies the use of this layer for best accu performance
 paths.dofile('BBoxNorm.lua')
 paths.dofile('NoBackprop.lua')
-
-fastrcnn = {}
+paths.dofile('BatchROISampler.lua')
+paths.dofile('BBoxRegressionCriterion.lua')
 
 -- load image detector class
 paths.dofile('ImageDetector.lua')

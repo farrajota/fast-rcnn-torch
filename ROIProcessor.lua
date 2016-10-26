@@ -18,7 +18,6 @@ function ROIProcessor:__init(dataset, proposals, opt)
     self.roidb = proposals
     self.classes = self.dataset.classLabel
     self.nFiles = dataset.filename:size(1)
-    
 end
 
 
@@ -26,12 +25,30 @@ function ROIProcessor:getROIBoxes(idx)
     return self.roidb[idx]
 end
 
-
+--[[
 function ROIProcessor:getGTBoxes(idx)
     local object_ids = self.dataset.filenameList.objectIDList[idx]:gt(0):squeeze(1):nonzero()
     local gt_boxes, gt_classes = {}, {}
     for i=1, object_ids:size(1) do
-        local objID = object_ids[i][1]
+        local objID = self.dataset.filenameList.objectIDList[idx][object_ids[i][1] ]
+        local bbox = self.dataset.bbox[self.dataset.object[objID][3] ]
+        local label = self.dataset.object[objID][2]
+        table.insert(gt_boxes, bbox:totable())
+        table.insert(gt_classes, label)
+    end
+    gt_boxes = torch.FloatTensor(gt_boxes)
+    return gt_boxes,gt_classes
+end
+--]]
+
+function ROIProcessor:getGTBoxes(idx)
+    local size = self.dataset.filenameList.objectIDList[idx]:size(1)
+    local gt_boxes, gt_classes = {}, {}
+    for i=1, size do
+        local objID = self.dataset.filenameList.objectIDList[idx][i]
+        if objID == 0 then
+            break
+        end
         local bbox = self.dataset.bbox[self.dataset.object[objID][3]]
         local label = self.dataset.object[objID][2]
         table.insert(gt_boxes, bbox:totable())
@@ -40,6 +57,7 @@ function ROIProcessor:getGTBoxes(idx)
     gt_boxes = torch.FloatTensor(gt_boxes)
     return gt_boxes,gt_classes
 end
+
 
 function ROIProcessor:getFilename(idx)
     local filename = ffi.string(self.dataset.filename[idx]:data())

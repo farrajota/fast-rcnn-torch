@@ -143,6 +143,19 @@ local function joinTable(input,dim)
   return output
 end
 
+------------------------------------------------------------------------------------------------------------
+
+local function ConcatTables(tableA, tableB) -- convert a string into a table 
+    local tableOut = {}
+    for i=1, #tableA do
+        table.insert(tableOut, tableA[i])
+    end
+    for i=1, #tableB do
+        table.insert(tableOut, tableB[i])
+    end
+    return tableOut
+end
+
 ---------------------------------------------------------------------------------------------------------------------
 
 local function keep_top_k(boxes,top_k)
@@ -276,6 +289,7 @@ return {
     -- eval fn
     keep_top_k = keep_top_k,
     joinTable = joinTable,
+    ConcatTables = ConcatTables,
     
     -- VOC eval functions
     voc_eval = paths.dofile('voc_eval.lua'),

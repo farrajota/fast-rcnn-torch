@@ -10,36 +10,27 @@ assert(rois)
 assert(model)
 assert(modelParameters)
 
+local tnt = require 'torchnet'
 local utils = paths.dofile('utils/init.lua')
+local modelStorageFn = paths.dofile('utils/store.lua') -- set model storage function
   
 --------------------------------------------------------------------------------
 -- Load configs (data, model, criterion, optimState)
 --------------------------------------------------------------------------------
 
-local opt, rois_processed, model, criterion, optimStateFn, nEpochs, roi_meanstd = paths.dofile('configs.lua')(model, dataset, rois, utils)
-opt.model_params = modelParameters
+local opt, model, criterion, optimStateFn, nEpochs = paths.dofile('configs.lua')(model, dataset, rois, modelParameters)
 local lopt = opt
-
--- save model parameters to experiment directory
-torch.save(opt.save .. '/model_parameters.t7', modelParameters)
 
 print('\n==========================')
 print('Optim method: ' .. opt.optMethod)
 print('==========================\n')
-
--- load torchnet package
-local tnt = require 'torchnet'
-
--- set model storage function
-local modelStorageFn = paths.dofile('utils/store.lua')
 
 -- set number of iterations
 local nItersTrain = opt.trainIters
 local nItersTest = dataset.data.test.filename:size(1)/opt.frcnn_imgs_per_batch
 
 -- classes
-local classList = utils.tds_to_table(dataset.data.train.classLabel)
-table.insert(classList, 'background')
+local classes = utils.ConcatTables({'background'}, dataset.data.train.classLabel)
 
 -- convert modules to a specified tensor type
 local function cast(x) return x:type(opt.dataType) end
@@ -72,13 +63,18 @@ local function getIterator(mode)
                     require 'torch'
                     require 'torchnet'
                     opt = lopt
-                    paths.dofile('data.lua')
+                    --paths.dofile('data.lua')
+                    fastrcnn = {}
+                    paths.dofile('BatchROISampler.lua')
+                    --require 'fastrcnn'
                     torch.manualSeed(threadid+opt.manualSeed)
                 end,
       closure = function()
          
-          local roi_data = rois_processed[mode].data
-          local loadData = SetupDataFn(mode, rois_processed, opt)
+          local batchprovider = fastrcnn.BatchROISampler(dataset.data[mode], rois[mode], opt, mode)
+         
+          --local roi_data = rois_processed[mode].data
+          --local loadData = SetupDataFn(mode, rois_processed, opt)
          
           local nIters = (mode=='train' and nItersTrain) or nItersTest
          
@@ -86,7 +82,8 @@ local function getIterator(mode)
           local list_dataset = tnt.ListDataset{
               list = torch.range(1, nIters):long(),
               load = function(idx)
-                  return GetBatchSample()
+                  --return GetBatchSample()
+                  return batchprovider:getBatch()
               end
           }
           
@@ -101,13 +98,13 @@ end
 --------------------------------------------------------------------------------
 
 local meters = {
-   train_conf = tnt.ConfusionMeter{k = opt.nClasses+1},
+   train_conf = tnt.ConfusionMeter{k = #classes},
    train_err = tnt.AverageValueMeter(),
    train_cls_err = tnt.AverageValueMeter(),
    train_bbox_err = tnt.AverageValueMeter(),
    train_clerr = tnt.ClassErrorMeter{topk = {1,5},accuracy=true},
    
-   test_conf = tnt.ConfusionMeter{k = opt.nClasses+1},
+   test_conf = tnt.ConfusionMeter{k = #classes},
    test_err = tnt.AverageValueMeter(),
    test_clerr = tnt.ClassErrorMeter{topk = {1},accuracy=true},
    ap = tnt.APMeter(),
@@ -179,7 +176,7 @@ engine.hooks.onForwardCriterion = function(state)
         --]]
         --
           print(string.format('epoch[%d/%d][%d/%d][batch=%d] -  loss: (classification = %2.4f,  bbox = %2.4f);     accu: (top-1: %2.2f; top-5: %2.2f);   lr = %.0e',   
-          state.epoch+1, state.maxepoch, (state.t+1)* opt.frcnn_imgs_per_batch, nItersTrain, state.sample.target[1]:size(1), meters.train_cls_err:value(), meters.train_bbox_err:value(), meters.train_clerr:value{k = 1}, meters.train_clerr:value{k = 5}, state.config.learningRate))
+          state.epoch+1, state.maxepoch, state.t+1, nItersTrain, state.sample.target[1]:size(1), meters.train_cls_err:value(), meters.train_bbox_err:value(), meters.train_clerr:value{k = 1}, meters.train_clerr:value{k = 5}, state.config.learningRate))
           --
       end
       
@@ -212,10 +209,24 @@ end
 
 engine.hooks.onEndEpoch = function(state)
    if state.training then
-      print(('Train Loss: %0.5f; Acc: %0.5f'):format(meters.train_err:value(),  meters.train_clerr:value()[1]))
-      local tr = optim.ConfusionMatrix(classList)
+      local tr = optim.ConfusionMatrix(classes)
       tr.mat = meters.train_conf:value()
-      if opt.printConfusion then print(tr) end
+      
+      print('\n**Train epoch finished**')
+      print(('Train Loss: (total: %0.5f; classification: %0.5f; bbox: %0.5f)  Acc: %0.5f'):format(
+          meters.train_err:value(), 
+          meters.train_cls_err:value(), 
+          meters.train_bbox_err:value(), 
+          meters.train_clerr:value()[1]
+      ))
+      if opt.printConfusion then 
+          print(tr) 
+      else
+          tr:updateValids();
+          print('+ average row correct: ' .. (tr.averageValid*100) .. '%')
+          print('+ average rowUcol correct (VOC measure): ' .. (tr.averageUnionValid*100) .. '%')
+          print('+ global correct: ' .. (tr.totalValid*100) .. '%')
+      end
       
       -- measure loss and error:
       local tr_loss = meters.train_err:value()
@@ -232,7 +243,7 @@ end
 
 engine.hooks.onEnd = function(state)
    if not state.training then
-      local ts = optim.ConfusionMatrix(classList)
+      local ts = optim.ConfusionMatrix(classes)
       ts.mat = meters.test_conf:value()
       if opt.printConfusion then print(ts) end
       print("Test Loss" , meters.test_err:value())

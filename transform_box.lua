@@ -10,9 +10,15 @@ local M = {}
 function M.HorizontalFlip()
    return function(input, width)
       local out = input:clone()
-      local tmp = out[{{},{1}}]:clone()
-      out[{{},{1}}] = -(out[{{},{3}}]-width) + 1
-      out[{{},{3}}] = -(tmp-width) + 1
+      if out:dim() > 1 then
+          local tmp = out[{{},{1}}]:clone()
+          out[{{},{1}}] = -(out[{{},{3}}]-width) + 1
+          out[{{},{3}}] = -(tmp-width) + 1
+      else
+          local tmp = out[1]
+          out[1] = width-out[3] +1
+          out[3] = width-tmp +1
+      end
       return out
    end
 end
@@ -72,12 +78,10 @@ function M.Scale_prev(scales)
 end
 
 -- scale
-function M.Scale()
+function M.Scale(max_size)
    return function(input, scales)
       -- source: https://github.com/mahyarnajibi/fast-rcnn-torch/blob/aaa0a33805a6ca761281bde7994900127d738daa/ROI/ROI.lua#L223-L238
-      local rois = input:clone()
-      rois:add(-1):mul(scales):add(1)
-      return rois
+      return input:clone():add(-1):mul(scales):add(1):clamp(0,max_size)
    end
 end
 

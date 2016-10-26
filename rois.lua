@@ -81,7 +81,8 @@ local function ComputeROIOverlapsFn(roi_boxes, data, augment_percent, quantity)
   
   -- cycle all files and preprocess roi proposals data
   local runningIndex = 1 -- use a running index (good for datasets with files withouth ground truth boxes (data) which can be skipped/ignored during the training process)
-  for ifile=1, nFiles do
+  --for ifile=1, nFiles do
+  for ifile=1173, nFiles do
     
       -- progress bar
       xlua.progress(ifile, nFiles)
