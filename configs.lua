@@ -74,7 +74,7 @@ local function LoadConfigs(model, dataset, rois, modelParameters)
           
           -- determine the maximum number of epochs
           for k, v in pairs(schedule) do
-              nEpochs = math.min(v[2], opt.nEpochs)
+              nEpochs = v[2]
           end
           
       else

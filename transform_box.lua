@@ -68,7 +68,7 @@ function M.Scale_old(scales)
 end
 
 -- scale
-function M.Scale_prev(scales)
+function M.Scale(scales)
    return function(input)
       -- source: https://github.com/mahyarnajibi/fast-rcnn-torch/blob/aaa0a33805a6ca761281bde7994900127d738daa/ROI/ROI.lua#L223-L238
       local rois = input:clone()
@@ -78,7 +78,7 @@ function M.Scale_prev(scales)
 end
 
 -- scale
-function M.Scale(max_size)
+function M.Scale_altered(max_size)
    return function(input, scales)
       -- source: https://github.com/mahyarnajibi/fast-rcnn-torch/blob/aaa0a33805a6ca761281bde7994900127d738daa/ROI/ROI.lua#L223-L238
       return input:clone():add(-1):mul(scales):add(1):clamp(0,max_size)

@@ -73,8 +73,8 @@ local function test(dataset, roi_proposals, model, modelParameters, opt)
       
       -- cycle all classes
       for iclass=1, nClasses do
-        local scores = scores:select(2,iclass)
-       -- local scores = scores:select(2,iclass+1)
+        --local scores = scores:select(2,iclass)
+        local scores = scores:select(2,iclass+1)
         local idx = torch.range(1,scores:numel()):long()
         local idx2 = scores:ge(thresh[iclass])
         idx = idx[idx2]
@@ -83,10 +83,10 @@ local function test(dataset, roi_proposals, model, modelParameters, opt)
           -- use bbox predictions if exist. If not use the bbox rois coordinates.
           if predicted_boxes:numel() > 0 then
             -- use bbox predictions
-            local class_boxes = predicted_boxes[{{},{(iclass-1)*4+1,(iclass)*4}}]
-            scored_boxes:narrow(2,1,4):index(class_boxes,1,idx)
-           -- local class_boxes = predicted_boxes[{{},{(iclass)*4+1,(iclass+1)*4}}]
+           -- local class_boxes = predicted_boxes[{{},{(iclass-1)*4+1,(iclass)*4}}]
            -- scored_boxes:narrow(2,1,4):index(class_boxes,1,idx)
+            local class_boxes = predicted_boxes[{{},{(iclass)*4+1,(iclass+1)*4}}]
+            scored_boxes:narrow(2,1,4):index(class_boxes,1,idx)
           else
             -- use rois
             scored_boxes:narrow(2,1,4):index(rois,1,idx)

@@ -9,12 +9,15 @@ local utils = paths.dofile('utils/init.lua')
 
 local Tester = torch.class('fastrcnn.Tester')
 
-function Tester:__init(dataset, roi_proposals, model, modelParameters, opt, mode)
+function Tester:__init(dataset, roi_proposals, model, modelParameters, opt, eval_mode)
   
-  assert(model)
   assert(dataset)
-  assert(rois)
-  assert(mode)
+  assert(roi_proposals)
+  assert(model)
+  assert(modelParameters)
+  assert(opt)
+  
+  self.eval_mode = eval_mode or 'voc'
   
   
   -- image detector

@@ -142,8 +142,10 @@ function BatchSampler:selectBBoxesOne(bboxes, num_max, im_scale, im_size, do_fli
         return dd
     end
     
+    local positions = torch.randperm(math.min(num_max, n))
     for i=1,math.min(num_max, n) do
-        local position = torch.random(n)
+        --local position = torch.random(n)
+        local position = positions[i]
         table.insert(rois,    preprocess_bbox(bboxes.rois[position], do_flip):totable())
         table.insert(gtboxes, preprocess_bbox(bboxes.gtboxes[position], do_flip):totable())
         table.insert(labels,  bboxes.labels[position])
