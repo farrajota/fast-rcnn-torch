@@ -16,20 +16,21 @@ require 'inn'
 
 fastrcnn = {}
 
-paths.dofile('ROIPooling.lua') -- this package requies the use of this layer for best accu performance
-paths.dofile('BBoxNorm.lua')
-paths.dofile('NoBackprop.lua')
-paths.dofile('BatchROISampler.lua')
-paths.dofile('BBoxRegressionCriterion.lua')
+-- modules
+paths.dofile('modules/ROIPooling.lua') -- this package requires the use of this layer for best accu performance
+paths.dofile('modules/BBoxNorm.lua')
+paths.dofile('modules/NoBackprop.lua')
+paths.dofile('modules/BBoxRegressionCriterion.lua')
 
--- load image detector class
-paths.dofile('ImageDetector.lua')
--- load image tester class
-paths.dofile('Tester.lua')
+-- frcnn classes
+paths.dofile('BatchROISampler.lua') -- data loader/generator
+paths.dofile('ImageDetector.lua')   -- single image detector/tester
+paths.dofile('Tester.lua')          -- dataset tester
 
 -- load setup/options functions
 fastrcnn.train = paths.dofile('train.lua')
 fastrcnn.test = paths.dofile('test.lua')
-fastrcnn.utils = paths.dofile('utils/init.lua') 
+fastrcnn.utils = paths.dofile('utils/init.lua')
+fastrcnn.options = paths.dofile('options.lua')
 
 return fastrcnn

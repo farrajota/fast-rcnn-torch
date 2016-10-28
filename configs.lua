@@ -9,8 +9,6 @@ local function LoadConfigs(model, dataset, rois, modelParameters)
     -- Load necessary libraries and files
     -------------------------------------------------------------------------------
 
-    local roisFn = paths.dofile('rois.lua')
-    --paths.dofile('WeightedSmoothL1Criterion.lua')
     torch.setdefaulttensortype('torch.FloatTensor')
 
 
@@ -86,55 +84,26 @@ local function LoadConfigs(model, dataset, rois, modelParameters)
       else torch.seed() end                           
 
     end
-  
-    opt.model_param = modelParameters
-
-    -- FRCNN specific options
-    --opt.frcnn_nClasses = #dataset.data.train.classLabel
-    --opt.frcnn_backgroundID = opt.frcnn_nClasses + 1
-    --opt.frcnn_num_fg_samples_per_image = math.floor(opt.frcnn_rois_per_img * opt.frcnn_fg_fraction +0.5)
-    --opt.frcnn_num_bg_samples_per_image = opt.frcnn_rois_per_img - opt.frcnn_num_fg_samples_per_image
-
-
+    
+    
     -------------------------------------------------------------------------------
     -- Preprocess rois
     -------------------------------------------------------------------------------
-
-    --[[
-    local rois_preprocessed
-    -- check if cache data exists already, if not do roi data preprocess 
-    if paths.filep(paths.concat(opt.expDir, 'rois_cache.t7')) then
-        rois_preprocessed = torch.load(paths.concat(opt.expDir, 'rois_cache.t7'))
-    else
-        local PreprocessROIsFn = paths.dofile('rois.lua')
-        rois_preprocessed = PreprocessROIsFn(dataset, rois, opt.frcnn_fg_thresh, opt.verbose)
-        torch.save(paths.concat(opt.expDir, 'rois_cache.t7'), rois_preprocessed)
-    end
-    opt.nClasses = #dataset.data.train.classLabel
-    --]]
     
     do
         local nSamples = 1000
         print('Compute bbox regression mean/std values over '..nSamples..' train images...')
         local tic = torch.tic()
-        local batchprovider = fastrcnn.BatchROISampler(dataset.data.train, rois.train, opt, 'train')
+        local batchprovider = fastrcnn.BatchROISampler(dataset.data.train, rois.train, modelParameters, opt, 'train')
         
-        opt.bbox_meanstd = batchprovider:setupData(nSamples) -- compute regression mean/std
+        -- compute regression mean/std
+        opt.bbox_meanstd = batchprovider:setupData(nSamples) 
         
         print('Done. Elapsed time: ' .. torch.toc(tic))
         print(opt.bbox_meanstd)
     end
     
-
-    -- set means, stds for the regressor layer normalization
-    --local roi_means = torch.cat(rois_preprocessed.train.means:view(-1,1), torch.zeros(4,1), 1)
-    --local roi_stds = torch.cat(rois_preprocessed.train.stds:view(-1,1), torch.ones(4,1), 1)
-
-    --if opt.verbose then print('Compute bbox regression mean/std values...') end
-    --self.bbox_regr = self:setupData()
-    --if opt.verbose then print('Done') end
-
-
+    
     -------------------------------------------------------------------------------
     -- Setup criterion
     -------------------------------------------------------------------------------
@@ -143,7 +112,6 @@ local function LoadConfigs(model, dataset, rois, modelParameters)
     if opt.has_bbox_regressor then
         criterion = nn.ParallelCriterion()
             :add(nn.CrossEntropyCriterion(), 1)
-            --:add(nn.WeightedSmoothL1Criterion(), 1)
             :add(nn.BBoxRegressionCriterion(), 1)
     else
         criterion = nn.CrossEntropyCriterion()
@@ -196,18 +164,6 @@ local function LoadConfigs(model, dataset, rois, modelParameters)
       modelOut:add(model)
     --
     cast(modelOut)
-    
-    --[[
-    -- normalize regressor
-    if model.regressor then
-        local regressor = model.regressor
-        roi_means = cast(roi_means)
-        roi_stds = cast(roi_stds)
-        regressor.weight = regressor.weight:cdiv(roi_stds:expandAs(regressor.weight))
-        regressor.bias = regressor.bias - roi_means:view(-1)
-        regressor.bias = regressor.bias:cdiv(roi_stds:view(-1))
-    end
-    --]]
     
     if opt.verbose then
         print('Network:')

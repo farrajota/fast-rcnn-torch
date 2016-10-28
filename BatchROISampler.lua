@@ -12,9 +12,10 @@ paths.dofile('Transform.lua')
 local BatchSampler = torch.class('fastrcnn.BatchROISampler')
 
 
-function BatchSampler:__init(dataset, proposals, opt, mode)
+function BatchSampler:__init(dataset, proposals, modelParameters, opt, mode)
     assert(dataset)
     assert(proposals)
+    assert(modelParameters)
     assert(opt)
     assert(mode)
     
@@ -34,7 +35,7 @@ function BatchSampler:__init(dataset, proposals, opt, mode)
     self.imgs_per_batch = opt.frcnn_imgs_per_batch or 2
     self.scale = (mode=='train' and opt.frcnn_scales) or (mode=='test' and opt.frcnn_test_scales) or 600
     self.max_size = (mode=='train' and opt.frcnn_max_size) or (mode=='test' and opt.frcnn_test_max_size) or 1000
-    self.data_transformer = fastrcnn.Transform(opt, mode)
+    self.data_transformer = fastrcnn.Transform(modelParameters, opt, mode)
     
     self.verbose = opt.verbose or false
     self.bbox_meanstd = opt.bbox_meanstd
@@ -78,7 +79,6 @@ function BatchSampler:takeSubset(rec, t, idx, is_bg)
     local window = {
         indexes = torch.IntTensor(n),
         rois = torch.FloatTensor(n,4),
-        --labels = torch.IntTensor(n):fill(#self.dataset.classes+1),
         labels = torch.IntTensor(n):fill(1),
         gtboxes = torch.FloatTensor(n,4):zero(),
         size = function() return n end,
@@ -186,10 +186,8 @@ function BatchSampler:getSample(idx)
     local bboxregr_vals = torch.FloatTensor(rois:size(1), 4*(#self.dataset.classes+1)):zero()
     
     for i,label in ipairs(labels:totable()) do
-        --if label < #self.dataset.classes+1 then
         if label > 1 then
             local out = bboxregr_vals[i]:narrow(1,(label-1)*4 + 1,4)
-            --utils.convertTo(out, rois[i]:narrow(1,2,4), gtboxes[i])
             utils.convertTo(out, rois[i], gtboxes[i])
             out:add(-1,self.bbox_meanstd.mean):cdiv(self.bbox_meanstd.std)
         end
@@ -216,7 +214,6 @@ function BatchSampler:getBatch()
     end
     
     -- image
-    --local img = torch.FloatTensor(num_images_per_batch,3,max_height, max_width):fill(0)
     local img = torch.FloatTensor(self.imgs_per_batch,3, self.max_size, self.max_size):fill(0)
     for i=1, self.imgs_per_batch do
         local im = batchData[i][1]
@@ -236,6 +233,8 @@ function BatchSampler:getBatch()
             bbox_targets = batchData[i][4]
         end
     end
+    
+    -- randomize indexes
     
     collectgarbage()
     
