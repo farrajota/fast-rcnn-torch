@@ -18,7 +18,7 @@ function Transform:__init(modelParameters, opt, mode)
     
     -- frcnn options
     self.hflip_prob = (mode=='train' and opt.frcnn_hflip) or 0
-    self.scale = (mode=='train' and opt.frcnn_scales[1]) or (mode=='test' and opt.frcnn_test_scales[1]) or 600
+    self.scale = (mode=='train' and opt.frcnn_scales) or (mode=='test' and opt.frcnn_test_scales) or 600
     self.max_size = (mode=='train' and opt.frcnn_max_size) or (mode=='test' and opt.frcnn_test_max_size) or 1000
     
     self.interpolation = 'bicubic'
@@ -110,16 +110,14 @@ function Transform:image(im)
     
     -- colourspace convertion
     out = self:SetColourSpace(out)
-    -- scale
-    out, scale = self:ScaleLimit(out)
-    -- normalize values between 0 and 1 after scaling
-    out = self:NormalizePixelLimit(out)
     -- pixel scale
     out = self:SetPixelScale(out)
     -- flip
     out, is_flipped = self:HorizontalFlip(out)
     -- mean/std norm
     out = self:ColourNormalize(out)
+    -- scale
+    out, scale = self:ScaleLimit(out)
     
     collectgarbage()
     

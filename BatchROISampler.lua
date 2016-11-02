@@ -144,8 +144,8 @@ function BatchSampler:selectBBoxesOne(bboxes, num_max, im_scale, im_size, do_fli
     
     local positions = torch.randperm(math.min(num_max, n))
     for i=1,math.min(num_max, n) do
-        --local position = torch.random(n)
-        local position = positions[i]
+        local position = torch.random(n)
+        --local position = positions[i]
         table.insert(rois,    preprocess_bbox(bboxes.rois[position], do_flip):totable())
         table.insert(gtboxes, preprocess_bbox(bboxes.gtboxes[position], do_flip):totable())
         table.insert(labels,  bboxes.labels[position])
@@ -235,6 +235,11 @@ function BatchSampler:getBatch()
     end
     
     -- randomize indexes
+    local random_ind = torch.randperm(labels:size(1)):long()
+    boxes = boxes:index(1, random_ind)
+    labels = labels:index(1, random_ind)
+    bbox_targets = bbox_targets:index(1, random_ind)
+    
     
     collectgarbage()
     

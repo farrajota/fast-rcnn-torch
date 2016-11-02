@@ -14,9 +14,11 @@ function detector:__init(model, modelParameters, opt)
     assert(modelParameters)
     assert(opt)
     
+   
     self.model = model
+    utils.model.setDataParallel(self.model, opt.GPU or 1, 1) -- set model to use only one GPU
     
-    self.scales = opt.frcnn_test_scales[1]
+    self.scales = opt.frcnn_test_scales
     self.max_size = opt.frcnn_test_max_size
     
     -- setup data augment/normalization function
@@ -68,8 +70,7 @@ function detector:detect(im, boxes) -- Detect objects in an image
     -- fetch data from the network
     local scores, predicted_boxes
     if type(outputs)=='table' then
-        scores =  self._softmax:forward(outputs[1])
-        --predicted_boxes = utils.convertFrom(boxes, outputs[2]:float(), im:size())
+        scores = self._softmax:forward(outputs[1])
         predicted_boxes = outputs[2]:float()
         for i,v in ipairs(predicted_boxes:split(4,2)) do
             utils.convertFrom(v,boxes,v)

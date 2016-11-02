@@ -5,9 +5,9 @@
 local ffi = require 'ffi'
 local boxoverlap = paths.dofile('utils/boxoverlap.lua')
 
-local ROIProcessor =  torch.class('fastrcnn.ROIProcessor')
-
 ---------------------------------------------------------------------------------------------------
+
+local ROIProcessor = torch.class('fastrcnn.ROIProcessor')
 
 function ROIProcessor:__init(dataset, proposals, opt)
     assert(dataset)
@@ -134,5 +134,3 @@ function ROIProcessor:getProposals(idx)
 
     return rec
 end
-
-return ROIProcessor

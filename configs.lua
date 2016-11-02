@@ -3,7 +3,7 @@
 ]]
 
 
-local function LoadConfigs(model, dataset, rois, modelParameters)
+local function LoadConfigs(model, dataset, rois, modelParameters, opts)
 
     -------------------------------------------------------------------------------
     -- Load necessary libraries and files
@@ -15,74 +15,73 @@ local function LoadConfigs(model, dataset, rois, modelParameters)
     -------------------------------------------------------------------------------
     -- Process command line options
     -------------------------------------------------------------------------------
-
+    
     local opt, optimState, optimStateFn, nEpochs
-    if not opt then
 
-      local opts = paths.dofile('options.lua')
-      opt = opts.parse(arg)
+    local Options = fastrcnn.Options()
+    opt = Options:parse(opts or {})
+    
+    print('Saving everything to: ' .. opt.savedir)
+    os.execute('mkdir -p ' .. opt.savedir)
 
-      print('Saving everything to: ' .. opt.save)
-      os.execute('mkdir -p ' .. opt.save)
+    if opt.GPU >= 1 then
+        require 'cutorch'
+        require 'cunn'
+        cutorch.setDevice(opt.GPU)
+    end
 
-      if opt.GPU >= 1 then
-          require 'cutorch'
-          require 'cunn'
-          cutorch.setDevice(opt.GPU)
-      end
+    -- Training hyperparameters
+    -- (Some of these aren't relevant for rmsprop which is the optimization we use)
+    if not optimState then
+        optimState = {
+            learningRate = opt.LR,
+            learningRateDecay = opt.LRdecay,
+            momentum = opt.momentum,
+            dampening = 0.0,
+            weightDecay = opt.weightDecay
+        }
+    end
+    
+    -- define optim state function ()
+    if type(opt.schedule) == 'table' then
+        -- setup schedule
+        local schedule = {}
+        local schedule_id = 0
+        for i=1, #opt.schedule do
+            table.insert(schedule, {schedule_id+1, schedule_id+opt.schedule[i][1], opt.schedule[i][2], opt.schedule[i][3]})
+            schedule_id = schedule_id+opt.schedule[i][1]
+        end
+        
+        optimStateFn = function(epoch) 
+            for k, v in pairs(schedule) do
+                if v[1] <= epoch and v[2] >= epoch then
+                    return {
+                        learningRate = v[3],
+                        learningRateDecay = opt.LRdecay,
+                        momentum = opt.momentum,
+                        dampening = 0.0,
+                        weightDecay = v[4],
+                        end_schedule = (v[2]==epoch and 1) or 0
+                    }
+                end
+            end
+            return optimState
+        end
+        
+        -- determine the maximum number of epochs
+        for k, v in pairs(schedule) do
+            nEpochs = v[2]
+        end
+        
+    else
+        optimStateFn = function(epoch) return optimState end
+    end
 
-      -- Training hyperparameters
-      -- (Some of these aren't relevant for rmsprop which is the optimization we use)
-      if not optimState then
-          optimState = {
-              learningRate = opt.LR,
-              learningRateDecay = opt.LRdecay,
-              momentum = opt.momentum,
-              dampening = 0.0,
-              weightDecay = opt.weightDecay
-          }
-      end
-      
-      -- define optim state function ()
-      nEpochs = opt.nEpochs
-      if type(opt.schedule) == 'table' then
-          -- setup schedule
-          local schedule = {}
-          local schedule_id = 0
-          for i=1, #opt.schedule do
-              table.insert(schedule, {schedule_id+1, schedule_id+opt.schedule[i][1], opt.schedule[i][2], opt.schedule[i][3]})
-              schedule_id = schedule_id+opt.schedule[i][1]
-          end
-          
-          optimStateFn = function(epoch) 
-              for k, v in pairs(schedule) do
-                  if v[1] <= epoch and v[2] >= epoch then
-                      return {
-                          learningRate = v[3],
-                          learningRateDecay = opt.LRdecay,
-                          momentum = opt.momentum,
-                          dampening = 0.0,
-                          weightDecay = v[4],
-                          end_schedule = (v[2]==epoch and 1) or 0
-                      }
-                  end
-              end
-              return optimState
-          end
-          
-          -- determine the maximum number of epochs
-          for k, v in pairs(schedule) do
-              nEpochs = v[2]
-          end
-          
-      else
-          optimStateFn = function(epoch) return optimState end
-      end
-
-      -- Random number seed
-      if opt.manualSeed ~= -1 then torch.manualSeed(opt.manualSeed)
-      else torch.seed() end                           
-
+    -- Random number seed
+    if opt.manualSeed ~= -1 then 
+        torch.manualSeed(opt.manualSeed)
+    else 
+        torch.seed() 
     end
     
     
@@ -108,14 +107,9 @@ local function LoadConfigs(model, dataset, rois, modelParameters)
     -- Setup criterion
     -------------------------------------------------------------------------------
 
-    local criterion
-    if opt.has_bbox_regressor then
-        criterion = nn.ParallelCriterion()
-            :add(nn.CrossEntropyCriterion(), 1)
-            :add(nn.BBoxRegressionCriterion(), 1)
-    else
-        criterion = nn.CrossEntropyCriterion()
-    end
+    local criterion = nn.ParallelCriterion()
+        :add(nn.CrossEntropyCriterion(), 1)
+        :add(nn.BBoxRegressionCriterion(), 1)
     local modelOut = nn.Sequential()
 
 
@@ -171,8 +165,8 @@ local function LoadConfigs(model, dataset, rois, modelParameters)
     end
     
     -- Save options to experiment directory
-    torch.save(opt.save .. '/options.t7', opt)
-    torch.save(opt.save .. '/model_parameters.t7', modelParameters)
+    torch.save(opt.savedir .. '/options.t7', opt)
+    torch.save(opt.savedir .. '/model_parameters.t7', modelParameters)
     
     return opt, modelOut, criterion, optimStateFn, nEpochs
 end

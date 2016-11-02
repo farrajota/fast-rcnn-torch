@@ -2,8 +2,7 @@
     Visualize detections using a GUI window (requires qlua/qt).
 ]]
 
-
-local nms = paths.dofile('nms.lua')
+local utils = paths.dofile('init.lua')
 
 ---------------------------------------------------------------------------------------------------------------------
 
@@ -15,32 +14,52 @@ local function visualize_detections(im, boxes, scores, visualization_thresh, nms
     require 'qttorch'
     require 'qtwidget'
 
+    -- clamp predictions within image
+    local boxes_tmp = boxes:view(-1, 2)
+    boxes_tmp:select(2,1):clamp(1, im:size(3))
+    boxes_tmp:select(2,2):clamp(1, im:size(2))
+
     -- select best scoring boxes without background
-    local max_score,idx = scores[{{},{2,-1}}]:max(2)
-
-    local idx_thresh = max_score:gt(visualization_thresh)
-    max_score = max_score[idx_thresh]
-    idx = idx[idx_thresh]
-
-    local r = torch.range(1,boxes:size(1)):long()
-    local rr = r[idx_thresh]
-    if rr:numel() == 0 then
-        error('No detections with a score greater than the specified threshold')
+    local max_score, maxID = scores[{{},{2,-1}}]:max(2)
+    
+    -- max id
+    local idx = maxID:squeeze():gt(1):cmul(max_score:gt(visualization_thresh)):nonzero()
+    
+    if idx:numel()==0 then
+        local x,y = im:size(3),im:size(2)
+        local w = qtwidget.newwindow(x,y,"Fast R-CNN for Torch7! No objects detected on this frame")
+        local qtimg = qt.QImage.fromTensor(im)
+        w:image(0,0,x,y,qtimg)
+        local fontsize = 16
+        return w
     end
-    local boxes_thresh = boxes:index(1,rr)
+      
+    idx=idx:select(2,1)
+    boxes = boxes:index(1, idx)
+    maxID = maxID:index(1, idx)
+    max_score = max_score:index(1, idx)
     
-    local keep = nms(torch.cat(boxes_thresh:float(),max_score:float(),2), nms_thresh)
+    -- select bbox 
+    local boxes_thresh = {}
+    for i=1, boxes:size(1) do
+        local label = maxID[i][1]
+        table.insert(boxes_thresh, boxes[i]:narrow(1,(label-1)*4 + 1,4):totable())
+    end
+    boxes_thresh = torch.FloatTensor(boxes_thresh)
     
+    local scored_boxes = torch.cat(boxes_thresh:float(), max_score:float(), 2)
+    local keep = utils.nms_dense(scored_boxes, 0.3)
+
     boxes_thresh = boxes_thresh:index(1,keep)
-    max_score = max_score:index(1,keep)
-    idx = idx:index(1,keep)
+    max_score = max_score:index(1,keep):squeeze()
+    maxID = maxID:index(1,keep):squeeze()
 
     local num_boxes = boxes_thresh:size(1)
     local widths  = boxes_thresh[{{},3}] - boxes_thresh[{{},1}]
     local heights = boxes_thresh[{{},4}] - boxes_thresh[{{},2}]
 
     local x,y = im:size(3),im:size(2)
-    local w = qtwidget.newwindow(x,y,"Fast R-CNN for Torch!")
+    local w = qtwidget.newwindow(x,y,"Fast R-CNN for Torch7!")
     
     local qtimg = qt.QImage.fromTensor(im)
     w:image(0,0,x,y,qtimg)
@@ -88,7 +107,7 @@ local function visualize_detections(im, boxes, scores, visualization_thresh, nms
               w:moveto(30,40)
               w:setfont(qt.QFont{serif=true,italic=true,size=fontsize,bold=true})
               w:setcolor(qt.QColor("#000000"))
-              w:show(classes[idx[i]])
+              w:show(classes[maxID[i]])
               w:moveto(30,40+fontsize+5)
               w:show(string.format('%2.2f',max_score[i]))
               w:stroke()

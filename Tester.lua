@@ -23,7 +23,7 @@ function Tester:__init(dataset, roi_proposals, model, modelParameters, opt, eval
     -- initializations
     self.eval_mode = eval_mode or 'voc'
     self.progressbar = opt.progressbar or false
-    opt.model_params = modelParameters
+    --opt.model_params = modelParameters
     
     self.dataset = dataset.data.test
     self.filename = self.dataset.filename
@@ -57,7 +57,7 @@ function Tester:__init(dataset, roi_proposals, model, modelParameters, opt, eval
   
   
   
-    self.cache_filename = paths.concat(opt.expDir, 'cache_tester.t7')
+    self.cache_filename = paths.concat(opt.savedir, 'cache_tester.t7')
   
 end
 
@@ -184,10 +184,10 @@ function Tester:test()
     local raw_bbox_pred = tds.hash()
 
     local aboxes
-    if paths.filep(self.cache_filename) then
-        print('Load test cache from file: ' .. self.cache_filename)
-        aboxes = torch.load(self.cache_filename)
-    else
+ --   if paths.filep(self.cache_filename) then
+ --       print('Load test cache from file: ' .. self.cache_filename)
+ --       aboxes = torch.load(self.cache_filename)
+ --   else
   
     
 
@@ -207,9 +207,9 @@ function Tester:test()
     
     collectgarbage()
     
-    print('Save test cache to file: ' .. self.cache_filename)
-    torch.save(self.cache_filename, aboxes)
-    end
+ --   print('Save test cache to file: ' .. self.cache_filename)
+ --   torch.save(self.cache_filename, aboxes)
+--    end
 
     return self:computeAP(aboxes)
 end

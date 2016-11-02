@@ -25,7 +25,6 @@ local function evaluate(dataset_name, res)
     local nboxes = 0
     for class = 1, nClasses do
       local aboxes = getAboxes(res, class)
-
       for _,u in pairs(aboxes) do
         if u:nDimension() > 0 then
           nboxes = nboxes + u:size(1)
@@ -56,6 +55,8 @@ local function evaluate(dataset_name, res)
       end
       -- xlua.progress(class, nClasses)
     end
+
+  
 
     local coco = Coco(annFile)
     return coco:evaluate(boxt)
