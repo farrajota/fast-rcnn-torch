@@ -64,7 +64,9 @@ function BatchSampler:setupOne(idx)
     
     local fg = rec.overlap:ge(self.fg_threshold):nonzero()
     local bg = rec.overlap:ge(self.bg_threshold_lo):cmul(rec.overlap:lt(self.bg_threshold_hi)):nonzero()
+    local bg_no_overlap = rec.overlap:lt(math.max(self.bg_threshold_lo, 1e-8)):nonzero()
     return {
+       [-1] = self:takeSubset(rec, bg, idx, true),
        [0] = self:takeSubset(rec, bg, idx, true),
        [1] = self:takeSubset(rec, fg, idx, false)
     }
@@ -142,10 +144,8 @@ function BatchSampler:selectBBoxesOne(bboxes, num_max, im_scale, im_size, do_fli
         return dd
     end
     
-    local positions = torch.randperm(math.min(num_max, n))
     for i=1,math.min(num_max, n) do
         local position = torch.random(n)
-        --local position = positions[i]
         table.insert(rois,    preprocess_bbox(bboxes.rois[position], do_flip):totable())
         table.insert(gtboxes, preprocess_bbox(bboxes.gtboxes[position], do_flip):totable())
         table.insert(labels,  bboxes.labels[position])
@@ -160,11 +160,38 @@ end
 
 
 function BatchSampler:selectBBoxes(boxes, im_scale, im_size, do_flip)
+    local bg_no_overlap = self:selectBBoxesOne(boxes[-1], self.bg_num_each, im_scale, im_size, do_flip)
     local bg = self:selectBBoxesOne(boxes[0], self.bg_num_each, im_scale, im_size, do_flip)
     local fg = self:selectBBoxesOne(boxes[1], self.fg_num_each, im_scale, im_size, do_flip)
-    local rois = torch.FloatTensor():cat(bg.rois, fg.rois, 1)
-    local gtboxes = torch.FloatTensor():cat(bg.gtboxes, fg.gtboxes, 1)
-    local labels = torch.IntTensor():cat(bg.labels, fg.labels, 1)
+    local bg_rois, bg_gtboxes, bg_labels
+    if self.bg_fraction == 1 then
+        bg_rois = bg.rois
+        bg_gtboxes = bg.gtboxes
+        bg_labels = bg.labels
+    else
+        local num_bg_samples = math.ceil(self.bg_num_each*self.bg_fraction)
+        local num_oe_bg_samples = self.bg_num_each - num_bg_samples
+        if num_bg_samples>0 and num_oe_bg_samples>0 then
+            local bg_idx = torch.range(1,math.min(bg.labels:size(1), num_bg_samples)):long()
+            local bg_no_overlap_idx = torch.range(1,math.min(bg_no_overlap.labels:size(1), num_oe_bg_samples)):long()
+            bg_rois = torch.cat(bg.rois:index(1,bg_idx), bg_no_overlap.rois:index(1,bg_no_overlap_idx),1)
+            bg_gtboxes = torch.cat(bg.gtboxes:index(1,bg_idx),bg_no_overlap.gtboxes:index(1,bg_no_overlap_idx),1)
+            bg_labels = torch.cat(bg.labels:index(1,bg_idx),bg_no_overlap.labels:index(1,bg_no_overlap_idx),1)
+        elseif num_bg_samples>0 then
+            bg_rois = bg.rois
+            bg_gtboxes = bg.gtboxes
+            bg_labels = bg.labels
+        elseif num_oe_bg_samples>0 then
+            bg_rois = bg_no_overlap.rois
+            bg_gtboxes = bg_no_overlap.gtboxes
+            bg_labels = bg_no_overlap.labels
+        else
+            error('bg samples are 0')
+        end
+    end
+    local rois = torch.FloatTensor():cat(bg_rois, fg.rois, 1)
+    local gtboxes = torch.FloatTensor():cat(bg_gtboxes, fg.gtboxes, 1)
+    local labels = torch.IntTensor():cat(bg_labels, fg.labels, 1)
     return rois, labels, gtboxes
 end
 

@@ -40,6 +40,7 @@ local function train(dataset, rois, model, modelParameters, opts)
     -- Test data generator
     --------------------------------------------------------------------------------
     --[[
+    opt.frcnn_bg_fraction = 0.75
     local batchprovider = fastrcnn.BatchROISampler(dataset.data.train, rois.train, modelParameters, opt, 'train')
     a = batchprovider:getBatch()
     print('aqui')
