@@ -27,14 +27,12 @@ end
 
 -- adapted from: https://github.com/fmassa/object-detection.torch/blob/master/utils.lua#L128
 -- compute average precision (AP), recall and precision
-local function VOCevaldet(BBoxLoaderFn, scored_boxes, classID)
+local function VOCevaldet(BBoxLoaderFn, nFiles, scored_boxes, classID)
   
     assert(BBoxLoaderFn)
+    assert(nFiles)
     assert(scored_boxes)
     assert(classID)
-  
-    -- get total number of files
-    local nFiles = BBoxLoaderFn.size
     
     local num_pr = 0
     local energy = {}
@@ -47,10 +45,10 @@ local function VOCevaldet(BBoxLoaderFn, scored_boxes, classID)
         local bbox = {}
         local det = {}
         
-        local boxes = BBoxLoaderFn.getBoxes(ifile)
+        local boxes, labels = BBoxLoaderFn(ifile)
         for ibb=1, #boxes do
-            if boxes[ibb][2] == classID then
-                table.insert(bbox, boxes[ibb][1])
+            if labels[ibb] == classID then
+                table.insert(bbox, boxes[ibb])
                 table.insert(det, 0)
                 count = count + 1
             end
@@ -124,9 +122,10 @@ end
 
 ---------------------------------------------------------------------------------------------------------------------
 
-local function evaluate(BBoxLoaderFn, classes, aboxes)
+local function evaluate(BBoxLoaderFn, nfiles, classes, aboxes)
     
     assert(BBoxLoaderFn)
+    assert(nfiles)
     assert(classes)
     assert(aboxes)
     
@@ -136,7 +135,7 @@ local function evaluate(BBoxLoaderFn, classes, aboxes)
     local res = {}
     for iclass=1, #classes do
         local className = classes[iclass]
-        res[iclass] = VOCevaldet(BBoxLoaderFn, aboxes[iclass], iclass)
+        res[iclass] = VOCevaldet(BBoxLoaderFn, nfiles, aboxes[iclass], iclass)
         print(('%s AP: %0.5f'):format(className, res[iclass]))
     end
     res = torch.Tensor(res)

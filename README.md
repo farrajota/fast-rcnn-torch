@@ -2,6 +2,10 @@
 
 [Fast-RCNN](https://github.com/rbgirshick/fast-rcnn) implementation for Torch7. This package allows to train, test and implement an object detector.
 
+### TODO
+
+- add dbcollection agnostic functions to train/test/val the network (should have functions to load image filenames, get groundtruth boxes)
+- add pre-made data load functions in the utils for the dbcollection datasets
 
 ### Contents
 1. [Features](#features)

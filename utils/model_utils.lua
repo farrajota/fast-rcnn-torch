@@ -212,6 +212,16 @@ end
 
 ------------------------------------------------------------------------------------------------------------
 
+local function testSurgery(input, f, net, ...)
+   local output1 = net:forward(input):clone()
+   f(net,...)
+   local output2 = net:forward(input):clone()
+   print((output1 - output2):abs():max())
+   assert((output1 - output2):abs():max() < 2e-5)
+end
+
+------------------------------------------------------------------------------------------------------------
+
 return {
     MSRinit = MSRinit,
     FCinit = FCinit,
@@ -227,5 +237,7 @@ return {
     DisableFeatureBackprop = DisableFeatureBackprop,
     CreateClassifierBBoxRegressor = CreateClassifierBBoxRegressor,
     AddBBoxNorm = AddBBoxNorm,
-    NormalizeBBoxRegr = NormalizeBBoxRegr
+    NormalizeBBoxRegr = NormalizeBBoxRegr,
+    
+    testSurgery = testSurgery
 }

@@ -2,22 +2,21 @@
     Process ROI samples.
 ]]
 
-local ffi = require 'ffi'
 local boxoverlap = paths.dofile('utils/boxoverlap.lua')
 
 ---------------------------------------------------------------------------------------------------
 
 local ROIProcessor = torch.class('fastrcnn.ROIProcessor')
 
-function ROIProcessor:__init(dataset, proposals, opt)
-    assert(dataset)
+function ROIProcessor:__init(dataLoadFn, proposals, opt)
+    assert(dataLoadFn)
     assert(proposals)
     assert(opt)
     
-    self.dataset = dataset
+    self.dataLoadFn = dataLoadFn
     self.roidb = proposals
-    self.classes = self.dataset.classLabel
-    self.nFiles = dataset.filename:size(1)
+    self.classes = dataLoadFn.classLabel
+    self.nFiles = dataLoadFn.nfiles
 end
 
 
@@ -27,33 +26,19 @@ end
 
 
 function ROIProcessor:getGTBoxes(idx)
-    local size = self.dataset.filenameList.objectIDList[idx]:size(1)
-    local gt_boxes, gt_classes = {}, {}
-    for i=1, size do
-        local objID = self.dataset.filenameList.objectIDList[idx][i]
-        if objID == 0 then
-            break
-        end
-        local bbox = self.dataset.bbox[self.dataset.object[objID][3]]
-        local label = self.dataset.object[objID][2]
-        table.insert(gt_boxes, bbox:totable())
-        table.insert(gt_classes, label)
-    end
-    gt_boxes = torch.FloatTensor(gt_boxes)
-    return gt_boxes,gt_classes
+    return self.dataLoadFn.getGTBoxes(idx)
 end
 
 
 function ROIProcessor:getFilename(idx)
-    local filename = ffi.string(self.dataset.filename[idx]:data())
-    return filename
+    return self.dataLoadFn.getFilename(idx)
 end
 
 
 function ROIProcessor:getProposals(idx)
   
     -- check if there are any roi boxes for the current image
-    if self.dataset.filenameList.objectIDList[idx]:sum() == 0 then
+    if self.dataLoadFn.getGTBoxes(idx) ~= nil then
         return nil
     end
     

@@ -12,9 +12,9 @@ local utils = paths.dofile('utils/init.lua')
 
 local Tester = torch.class('fastrcnn.Tester')
 
-function Tester:__init(dataset, roi_proposals, model, modelParameters, opt, eval_mode)
+function Tester:__init(dataLoadTable, roi_proposals, model, modelParameters, opt, eval_mode)
   
-    assert(dataset)
+    assert(dataLoadTable)
     assert(roi_proposals)
     assert(model)
     assert(modelParameters)
@@ -25,10 +25,10 @@ function Tester:__init(dataset, roi_proposals, model, modelParameters, opt, eval
     self.progressbar = opt.progressbar or false
     --opt.model_params = modelParameters
     
-    self.dataset = dataset.data.test
-    self.filename = self.dataset.filename
-    self.datasetSize = self.filename:size(1)
-    self.classes = self.dataset.classLabel
+    self.dataLoadFn = dataLoadTable.test
+    assert(self.dataLoadFn)
+    self.nFiles = self.dataLoadFn.nfiles
+    self.classes = self.dataLoadFn.classLabel
     self.nClasses = #self.classes
     
     if roi_proposals.test then
@@ -47,24 +47,20 @@ function Tester:__init(dataset, roi_proposals, model, modelParameters, opt, eval
     -- convert batchnorm from cudnn to nn (cudnn has a limit of 1024 roi boxes per batch)
     utils.model.ConvertBNcudnn2nn(model)
    
+    -- Set image detector object
     self.ImageDetector = fastrcnn.ImageDetector(model, modelParameters, opt) -- single image detector/tester
     
-    -- set dataparallel modules to use a single GPU
-    --<TODO>
     
     -- set model to test mode
     model:evaluate()
   
-  
-  
+
     self.cache_filename = paths.concat(opt.savedir, 'cache_tester.t7')
-  
 end
 
 
 function Tester:getImage(idx)
-    local filename = ffi.string(self.filename[idx]:data())
-    return image.load(filename, 3, 'float')
+    return self.dataLoadFn.getFilename(idx)
 end
 
 function Tester:getProposals(idx)
@@ -166,7 +162,7 @@ function Tester:testOne(ifile)
     if ifile%1==0 and not self.progressbar then
         print(('test: %5d/%-5d dev: %d, forward time: %.3f, '
         .. 'select time: %.3fs, nms time: %.3fs, '
-        .. 'total time: %.3fs'):format(ifile, self.datasetSize,
+        .. 'total time: %.3fs'):format(ifile, self.nFiles,
         cutorch.getDevice(),
         tt2, timer2:time().real,
         nms_time, timer:time().real));
@@ -191,13 +187,13 @@ function Tester:test()
   
     
 
-    if not self.progressbar then xlua.progress(0, self.datasetSize) end
-    for ifile = 1, self.datasetSize do
+    if not self.progressbar then xlua.progress(0, self.nFiles) end
+    for ifile = 1, self.nFiles do
         local img_boxes, raw_boxes = self:testOne(ifile)
         aboxes_t[ifile] = img_boxes
             
         -- progress bar
-        if self.progressbar then xlua.progress(ifile, self.datasetSize) end
+        if self.progressbar then xlua.progress(ifile, self.nFiles) end
     end
     
 
@@ -216,7 +212,7 @@ end
 
 
 function Tester:keepTopKPerImage(aboxes_t, k)
-    for j = 1,self.datasetSize do
+    for j = 1,self.nFiles do
         aboxes_t[j] = utils.keep_top_k(aboxes_t[j], k)
     end
     return aboxes_t
@@ -227,14 +223,14 @@ function Tester:transposeBoxes(aboxes_t)
     local aboxes = tds.hash()
     for j = 1, self.nClasses do
         aboxes[j] = tds.hash()
-        for i = 1, self.datasetSize do
+        for i = 1, self.nFiles do
             aboxes[j][i] = aboxes_t[i][j]
         end
     end
     return aboxes
 end
 
-
+--[[
 function Tester:getBBoxLoaderFn()
     local dataset = self.dataset
     return {
@@ -255,11 +251,13 @@ function Tester:getBBoxLoaderFn()
         end
     }
 end
+--]]
 
 
 function Tester:computeAP(aboxes)
     if self.eval_mode == 'voc' then
-        return eval.pascal(self:getBBoxLoaderFn(), self.classes, aboxes)
+        --return eval.pascal(self:getBBoxLoaderFn(), self.classes, aboxes)
+        return eval.pascal(self.dataLoadFn.getGTBoxes, self.nFiles, self.classes, aboxes)
     else
         --return eval.coco(self:getBBoxLoaderFn(), self.classes, aboxes)
         --return testCoco.evaluate(self.dataset.dataset_name, aboxes_)

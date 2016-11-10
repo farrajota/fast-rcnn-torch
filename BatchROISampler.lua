@@ -12,14 +12,14 @@ paths.dofile('Transform.lua')
 local BatchSampler = torch.class('fastrcnn.BatchROISampler')
 
 
-function BatchSampler:__init(dataset, proposals, modelParameters, opt, mode)
-    assert(dataset)
+function BatchSampler:__init(dataLoadFn, proposals, modelParameters, opt, mode)
+    assert(dataLoadFn)
     assert(proposals)
     assert(modelParameters)
     assert(opt)
     assert(mode)
     
-    self.dataset = fastrcnn.ROIProcessor(dataset, proposals, opt)
+    self.dataset = fastrcnn.ROIProcessor(dataLoadFn, proposals, opt)
     
     self.batch_size = opt.frcnn_rois_per_img or 128
     self.fg_fraction = opt.frcnn_fg_fraction or 0.25

@@ -1,11 +1,35 @@
 --[[
     Train script. Uses torchnet as the framework.
+    
+    In order to facilitate the usage of this function, one needs to input a table with the necessary functions and variables to load the training (an the testing [optional]) data. This is achieved by the following input variable 'dataLoadTable', which has to be in the following format:
+    {
+        (contains the necessary functions and variables to load the necessary data)
+        train = {
+            getFilename = function(idx) return filename[idx] end,
+            getGTBoxes = function(idx) return getGTBoxes[idx] end,
+            nfiles = N,
+            classLabel = {'car', 'door', ...}
+        }
+        (* OPTIONAL *)
+        test = {
+            getFilename = function(idx) return filename[idx] end,
+            getGTBoxes = function(idx) return getGTBoxes[idx] end,
+            nfiles = N,
+            classLabel = {'car', 'door', ...}
+        }
+    }
+    
+    where:
+      - getFilename: returns the filename string for the index 'idx'
+      - getGTBoxes:  returns a Nx4 FloatTensor with the ground-truth bounding boxes of the objects in the format [x1,y1,x2,y2] for the image with index 'idx'
+      - nfiles: total number of files
+      - classLabel: list of all class labels/names (it is assumed the labels are sorted)
 --]]
 
 
-local function train(dataset, rois, model, modelParameters, opts)
+local function train(dataLoadTable, rois, model, modelParameters, opts)
   
-    assert(dataset)
+    assert(dataLoadTable)
     assert(rois)
     assert(model)
     assert(modelParameters)
@@ -18,7 +42,7 @@ local function train(dataset, rois, model, modelParameters, opts)
     -- Load configs (data, model, criterion, optimState)
     --------------------------------------------------------------------------------
 
-    local opt, modelOut, criterion, optimStateFn, nEpochs = paths.dofile('configs.lua')(model, dataset, rois, modelParameters, opts or {})
+    local opt, modelOut, criterion, optimStateFn, nEpochs = paths.dofile('configs.lua')(model, dataLoadTable, rois, modelParameters, opts or {})
     local lopt = opt
 
     print('\n==========================')
@@ -27,10 +51,10 @@ local function train(dataset, rois, model, modelParameters, opts)
 
     -- set number of iterations
     local nItersTrain = opt.trainIters
-    local nItersTest = dataset.data.test.filename:size(1)/opt.frcnn_imgs_per_batch
+    local nItersTest = dataLoadTable.test.nfiles/opt.frcnn_imgs_per_batch
 
     -- classes
-    local classes = utils.ConcatTables({'background'}, dataset.data.train.classLabel)
+    local classes = utils.ConcatTables({'background'}, dataLoadTable.train.classLabel)
 
     -- convert modules to a specified tensor type
     local function cast(x) return x:type(opt.dataType) end
@@ -64,7 +88,7 @@ local function train(dataset, rois, model, modelParameters, opts)
           closure = function()
              
               -- data loader/generator
-              local batchprovider = fastrcnn.BatchROISampler(dataset.data[mode], rois[mode], modelParameters, opt, mode)
+              local batchprovider = fastrcnn.BatchROISampler(dataLoadTable[mode], rois[mode], modelParameters, opt, mode)
              
               -- number of iterations per epoch
               local nIters = (mode=='train' and nItersTrain) or nItersTest
@@ -143,16 +167,10 @@ local function train(dataset, rois, model, modelParameters, opts)
     
     
     engine.hooks.onStartEpoch = function(state)
-        if state.training then
-            state.config = optimStateFn(state.epoch+1)
-            print('\n**********************************************')
-            print(('*** Starting Train epoch %d/%d, LR=%.0e'):format(state.epoch+1, state.maxepoch, state.config.learningRate))
-            print('**********************************************')
-        else
-            print('\n**********************************************')
-            print('*** Test the network ')
-            print('**********************************************')
-        end
+        state.config = optimStateFn(state.epoch+1)
+        print('\n**********************************************')
+        print(('*** Starting Train epoch %d/%d, LR=%.0e'):format(state.epoch+1, state.maxepoch, state.config.learningRate))
+        print('**********************************************')
     end
 
 
@@ -290,6 +308,11 @@ local function train(dataset, rois, model, modelParameters, opts)
     --------------------------------------------------------------------------------
     -- Test the model
     --------------------------------------------------------------------------------
+
+    print('\n')
+    print('**********************************************')
+    print('*** Test the network ')
+    print('**********************************************')
 
     engine:test{
         network   = modelOut,

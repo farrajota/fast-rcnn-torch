@@ -3,7 +3,7 @@
 ]]
 
 
-local function LoadConfigs(model, dataset, rois, modelParameters, opts)
+local function LoadConfigs(model, dataLoadTable, rois, modelParameters, opts)
 
     -------------------------------------------------------------------------------
     -- Load necessary libraries and files
@@ -93,7 +93,7 @@ local function LoadConfigs(model, dataset, rois, modelParameters, opts)
         local nSamples = 1000
         print('Compute bbox regression mean/std values over '..nSamples..' train images...')
         local tic = torch.tic()
-        local batchprovider = fastrcnn.BatchROISampler(dataset.data.train, rois.train, modelParameters, opt, 'train')
+        local batchprovider = fastrcnn.BatchROISampler(dataLoadTable.train, rois.train, modelParameters, opt, 'train')
         
         -- compute regression mean/std
         opt.bbox_meanstd = batchprovider:setupData(nSamples) 
