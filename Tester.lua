@@ -1,97 +1,103 @@
 --[[
-    Model tester class. Tests voc/coco mAP of a model on a given dataset + roi proposals.
+    Model tester class. Tests pascal voc/coco mAP of a model on a given dataset + roi proposals.
 ]]
 
-local ffi = require 'ffi'
+
 local tds = require 'tds'
 local xlua = require 'xlua'
-local eval = paths.dofile('eval/init.lua')
-local utils = paths.dofile('utils/init.lua')
+local eval = require 'eval'
+local utils = require 'utils'
+
+if not fastrcnn then fastrcnn = {} end
 
 ------------------------------------------------------------------------------------------------
 
 local Tester = torch.class('fastrcnn.Tester')
 
 function Tester:__init(dataLoadTable, roi_proposals, model, modelParameters, opt, eval_mode)
-  
+
     assert(dataLoadTable)
     assert(roi_proposals)
     assert(model)
     assert(modelParameters)
     assert(opt)
-    
+
     -- initializations
     self.eval_mode = eval_mode or 'voc'
     self.progressbar = opt.progressbar or false
     --opt.model_params = modelParameters
-    
+
     self.dataLoadFn = dataLoadTable.test
     assert(self.dataLoadFn)
     self.nFiles = self.dataLoadFn.nfiles
     self.classes = self.dataLoadFn.classLabel
     self.nClasses = #self.classes
-    
+
     if roi_proposals.test then
         self.roi_proposals = roi_proposals.test
     else
         self.roi_proposals = roi_proposals
     end
-    
+
     -- thresholds
     self.thresh = torch.ones(self.nClasses):mul(-1.5)
     self.test_nms_thresh = opt.frcnn_test_nms_thresh
     self.test_bbox_voting_nms_thresh = opt.test_bbox_voting_nms_thresh or 0.5
-   
+
     self.test_bbox_voting = false
-    
+
     -- convert batchnorm from cudnn to nn (cudnn has a limit of 1024 roi boxes per batch)
     utils.model.ConvertBNcudnn2nn(model)
-   
+
     -- Set image detector object
     self.ImageDetector = fastrcnn.ImageDetector(model, modelParameters, opt) -- single image detector/tester
-    
-    
+
+
     -- set model to test mode
     model:evaluate()
-  
+
 
     self.cache_filename = paths.concat(opt.savedir, 'cache_tester.t7')
 end
 
+------------------------------------------------------------------------------------------------------------
 
 function Tester:getImage(idx)
     return self.dataLoadFn.getFilename(idx)
 end
 
+------------------------------------------------------------------------------------------------------------
+
 function Tester:getProposals(idx)
     return self.roi_proposals[idx]
 end
 
+------------------------------------------------------------------------------------------------------------
 
 function Tester:testOne(ifile)
     local dataset = self.dataset
     local thresh = self.thresh
 
     local img_boxes = tds.hash()
-    
+
     -- init timers
     local timer = torch.Timer()
     local timer2 = torch.Timer()
     local timer3 = torch.Timer()
 
     timer:reset()
-    
+
     -- load image + boxes
     local im = self:getImage(ifile)
     local boxes = self:getProposals(ifile)
 
     timer3:reset()
-    
+
     -- check if proposal boxes exist
     local output, bbox_pred
     local tt2, nms_time
     if boxes:numel()>0 then
-        
+
         local all_output = {}
         local all_bbox_pred = {}
 
@@ -124,8 +130,8 @@ function Tester:testOne(ifile)
         --    table.remove(all_bbox_pred)
         --end
 
-        output = utils.joinTable(all_output, 1)
-        bbox_pred = utils.joinTable(all_bbox_pred, 1)
+        output = utils.table.joinTable(all_output, 1)
+        bbox_pred = utils.table.joinTable(all_bbox_pred, 1)
 
         tt2 = timer3:time().real
 
@@ -142,13 +148,16 @@ function Tester:testOne(ifile)
                 bx:copy(bbox_pred:narrow(2, j*4+1, 4):index(1, idx))
                 scored_boxes:select(2, 5):copy(scores[idx2])
             end
-            img_boxes[j] = utils.nms(scored_boxes, self.test_nms_thresh)
+
+            -- apply non-maxmimum suppression
+            img_boxes[j] = utils.nms.fast(scored_boxes, self.test_nms_thresh)
+
             if self.test_bbox_voting then
                 local rescaled_scored_boxes = scored_boxes:clone()
                 local scores = rescaled_scored_boxes:select(2,5)
                 scores:pow(opt.test_bbox_voting_score_pow or 1)
 
-                img_boxes[j] = utils.bbox_vote(img_boxes[j], rescaled_scored_boxes, self.test_bbox_voting_nms_thresh)
+                img_boxes[j] = utils.nms.bbox_vote(img_boxes[j], rescaled_scored_boxes, self.test_bbox_voting_nms_thresh)
             end
         end
         nms_time = nms_timer:time().real
@@ -167,10 +176,11 @@ function Tester:testOne(ifile)
         tt2, timer2:time().real,
         nms_time, timer:time().real));
     end
-    
+
     return img_boxes, {output, bbox_pred}
 end
 
+------------------------------------------------------------------------------------------------------------
 
 function Tester:test()
 
@@ -184,25 +194,25 @@ function Tester:test()
  --       print('Load test cache from file: ' .. self.cache_filename)
  --       aboxes = torch.load(self.cache_filename)
  --   else
-  
-    
+
+
 
     if not self.progressbar then xlua.progress(0, self.nFiles) end
     for ifile = 1, self.nFiles do
         local img_boxes, raw_boxes = self:testOne(ifile)
         aboxes_t[ifile] = img_boxes
-            
+
         -- progress bar
         if self.progressbar then xlua.progress(ifile, self.nFiles) end
     end
-    
+
 
     aboxes_t = self:keepTopKPerImage(aboxes_t, 100) -- coco only accepts 100/image
     local aboxes = self:transposeBoxes(aboxes_t)
     aboxes_t = nil
-    
+
     collectgarbage()
-    
+
  --   print('Save test cache to file: ' .. self.cache_filename)
  --   torch.save(self.cache_filename, aboxes)
 --    end
@@ -210,6 +220,7 @@ function Tester:test()
     return self:computeAP(aboxes)
 end
 
+------------------------------------------------------------------------------------------------------------
 
 function Tester:keepTopKPerImage(aboxes_t, k)
     for j = 1,self.nFiles do
@@ -218,6 +229,7 @@ function Tester:keepTopKPerImage(aboxes_t, k)
     return aboxes_t
 end
 
+------------------------------------------------------------------------------------------------------------
 
 function Tester:transposeBoxes(aboxes_t)
     local aboxes = tds.hash()
@@ -253,6 +265,7 @@ function Tester:getBBoxLoaderFn()
 end
 --]]
 
+------------------------------------------------------------------------------------------------------------
 
 function Tester:computeAP(aboxes)
     if self.eval_mode == 'voc' then

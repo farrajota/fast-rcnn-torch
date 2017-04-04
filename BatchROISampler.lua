@@ -1,16 +1,15 @@
 --[[
-    Samples batches of data for train/test. 
+    Samples batches of data for train/test.
 ]]
 
-local utils = paths.dofile('utils/init.lua')
 
-paths.dofile('ROIProcessor.lua')
-paths.dofile('Transform.lua')
+local utils = require 'utils'
+
+if not fastrcnn then fastrcnn = {} end
 
 ---------------------------------------------------------------------------------------------
 
 local BatchSampler = torch.class('fastrcnn.BatchROISampler')
-
 
 function BatchSampler:__init(dataLoadFn, proposals, modelParameters, opt, mode)
     assert(dataLoadFn)
@@ -18,32 +17,32 @@ function BatchSampler:__init(dataLoadFn, proposals, modelParameters, opt, mode)
     assert(modelParameters)
     assert(opt)
     assert(mode)
-    
+
     self.dataset = fastrcnn.ROIProcessor(dataLoadFn, proposals, opt)
-    
+
     self.batch_size = opt.frcnn_rois_per_img or 128
     self.fg_fraction = opt.frcnn_fg_fraction or 0.25
     self.bg_fraction = opt.frcnn_bg_fraction or 1
-    
+
     self.fg_num_each = self.fg_fraction * self.batch_size
     self.bg_num_each = self.batch_size - self.fg_num_each
-    
+
     self.fg_threshold = opt.frcnn_fg_thresh or 0.5
     self.bg_threshold_hi = opt.frcnn_bg_thresh_hi or 0.5
     self.bg_threshold_lo = opt.frcnn_bg_thresh_lo or 0.1
-    
+
     self.imgs_per_batch = opt.frcnn_imgs_per_batch or 2
     self.scale = (mode=='train' and opt.frcnn_scales) or (mode=='test' and opt.frcnn_test_scales) or 600
     self.max_size = (mode=='train' and opt.frcnn_max_size) or (mode=='test' and opt.frcnn_test_max_size) or 1000
     self.data_transformer = fastrcnn.Transform(modelParameters, opt, mode)
-    
+
     self.verbose = opt.verbose or false
     self.bbox_meanstd = opt.bbox_meanstd
     self.nFiles = self.dataset.nFiles
 
-      
-    
-    
+
+
+
 
     --self.scale_jitter    = scale_jitter or 0    -- uniformly jitter the scale by this frac
     --self.aspect_jitter   = aspect_jitter or 0   -- uniformly jitter the scale by this frac
@@ -52,6 +51,7 @@ function BatchSampler:__init(dataLoadFn, proposals, modelParameters, opt, mode)
     --self.crop_min_frac = 0.7 -- a crop must preserve at least this fraction of the iamge
 end
 
+------------------------------------------------------------------------------------------------------------
 
 -- Prepare foreground / background rois for one image
 -- there is a check if self.bboxes has a table prepared for this image already
@@ -61,7 +61,7 @@ function BatchSampler:setupOne(idx)
     if not rec then
         return nil
     end
-    
+
     local fg = rec.overlap:ge(self.fg_threshold):nonzero()
     local bg = rec.overlap:ge(self.bg_threshold_lo):cmul(rec.overlap:lt(self.bg_threshold_hi)):nonzero()
     local bg_no_overlap = rec.overlap:lt(math.max(self.bg_threshold_lo, 1e-8)):nonzero()
@@ -72,6 +72,7 @@ function BatchSampler:setupOne(idx)
     }
 end
 
+------------------------------------------------------------------------------------------------------------
 
 function BatchSampler:takeSubset(rec, t, idx, is_bg)
     local ind = torch.type(t) == 'table' and torch.LongTensor(t) or t:long()
@@ -95,6 +96,7 @@ function BatchSampler:takeSubset(rec, t, idx, is_bg)
     return window
 end
 
+------------------------------------------------------------------------------------------------------------
 
 -- Calculate rois and supporting data for 'nSamples' images
 -- to compute mean/var for bbox regresion
@@ -104,7 +106,7 @@ function BatchSampler:setupData(nSamples)
     for i = 1, size do
         local v = self:setupOne(i)[1]
         if v then
-            table.insert(regression_values, utils.convertTo(v.rois, v.gtboxes))
+            table.insert(regression_values, utils.box.convertTo(v.rois, v.gtboxes))
         end
     end
     regression_values = torch.FloatTensor():cat(regression_values,1)
@@ -113,10 +115,11 @@ function BatchSampler:setupData(nSamples)
         mean = regression_values:mean(1),
         std = regression_values:std(1)
     }
-    
+
     return self.bbox_meanstd
 end
 
+------------------------------------------------------------------------------------------------------------
 
 function BatchSampler:getImage(idx)
     local im = image.load(self.dataset:getFilename(idx),3,'float')
@@ -125,12 +128,13 @@ function BatchSampler:getImage(idx)
     return im_transf, im_scale, im_size, is_flipped
 end
 
+------------------------------------------------------------------------------------------------------------
 
 function BatchSampler:selectBBoxesOne(bboxes, num_max, im_scale, im_size, do_flip)
     local rois = {}
     local labels = {}
     local gtboxes = {}
-    
+
     local n = bboxes:size()
 
     local function preprocess_bbox(input, flip)
@@ -143,14 +147,14 @@ function BatchSampler:selectBBoxesOne(bboxes, num_max, im_scale, im_size, do_fli
         end
         return dd
     end
-    
+
     for i=1,math.min(num_max, n) do
         local position = torch.random(n)
         table.insert(rois,    preprocess_bbox(bboxes.rois[position], do_flip):totable())
         table.insert(gtboxes, preprocess_bbox(bboxes.gtboxes[position], do_flip):totable())
         table.insert(labels,  bboxes.labels[position])
     end
-    
+
     return {
         gtboxes = torch.FloatTensor(gtboxes),
         rois = torch.FloatTensor(rois),
@@ -158,6 +162,7 @@ function BatchSampler:selectBBoxesOne(bboxes, num_max, im_scale, im_size, do_fli
     }
 end
 
+------------------------------------------------------------------------------------------------------------
 
 function BatchSampler:selectBBoxes(boxes, im_scale, im_size, do_flip)
     local bg_no_overlap = self:selectBBoxesOne(boxes[-1], self.bg_num_each, im_scale, im_size, do_flip)
@@ -195,6 +200,7 @@ function BatchSampler:selectBBoxes(boxes, im_scale, im_size, do_flip)
     return rois, labels, gtboxes
 end
 
+------------------------------------------------------------------------------------------------------------
 
 function BatchSampler:getSample(idx)
     -- fetch boxes
@@ -202,20 +208,20 @@ function BatchSampler:getSample(idx)
     if not boxes then
         return {}
     end
-    
+
     -- get image
     local images, im_scale, im_size, is_flipped = self:getImage(idx)
-    
+
     -- get rois, labels and ground-truth boxes
     local rois, labels, gtboxes = self:selectBBoxes(boxes, im_scale, im_size, is_flipped)
-    
+
     -- get bbox regression values
     local bboxregr_vals = torch.FloatTensor(rois:size(1), 4*(#self.dataset.classes+1)):zero()
-    
+
     for i,label in ipairs(labels:totable()) do
         if label > 1 then
             local out = bboxregr_vals[i]:narrow(1,(label-1)*4 + 1,4)
-            utils.convertTo(out, rois[i], gtboxes[i])
+            utils.box.convertTo(out, rois[i], gtboxes[i])
             out:add(-1,self.bbox_meanstd.mean):cdiv(self.bbox_meanstd.std)
         end
     end
@@ -223,9 +229,10 @@ function BatchSampler:getSample(idx)
     return {images, rois, labels, bboxregr_vals}
 end
 
+------------------------------------------------------------------------------------------------------------
 
 function BatchSampler:getBatch()
-  
+
     -- Load data samples
     local batchData, data, imUsed = {}, {}, {}
     for i=1, self.imgs_per_batch do
@@ -239,7 +246,7 @@ function BatchSampler:getBatch()
         end
         table.insert(batchData, data)
     end
-    
+
     -- image
     local img = torch.FloatTensor(self.imgs_per_batch,3, self.max_size, self.max_size):fill(0)
     for i=1, self.imgs_per_batch do
@@ -250,7 +257,7 @@ function BatchSampler:getBatch()
     -- concatenate
     local boxes, labels, bbox_targets
     for i=1, self.imgs_per_batch do
-        if boxes then 
+        if boxes then
             boxes = boxes:cat(torch.FloatTensor(batchData[i][2]:size(1)):fill(i):cat(batchData[i][2],2),1)
             labels = labels:cat(batchData[i][3],1)
             bbox_targets = bbox_targets:cat(batchData[i][4],1)
@@ -260,15 +267,15 @@ function BatchSampler:getBatch()
             bbox_targets = batchData[i][4]
         end
     end
-    
+
     -- randomize indexes
     local random_ind = torch.randperm(labels:size(1)):long()
     boxes = boxes:index(1, random_ind)
     labels = labels:index(1, random_ind)
     bbox_targets = bbox_targets:index(1, random_ind)
-    
-    
+
+
     collectgarbage()
-    
+
     return {{img, boxes}, {labels, {labels, bbox_targets}}}
 end

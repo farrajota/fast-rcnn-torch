@@ -2,7 +2,11 @@
     Process ROI samples.
 ]]
 
-local boxoverlap = paths.dofile('utils/boxoverlap.lua')
+
+local box = require 'utils.box'
+local boxoverlap = box.boxoverlap
+
+if not fastrcnn then fastrcnn = {} end
 
 ---------------------------------------------------------------------------------------------------
 
@@ -12,43 +16,47 @@ function ROIProcessor:__init(dataLoadFn, proposals, opt)
     assert(dataLoadFn)
     assert(proposals)
     assert(opt)
-    
+
     self.dataLoadFn = dataLoadFn
     self.roidb = proposals
     self.classes = dataLoadFn.classLabel
     self.nFiles = dataLoadFn.nfiles
 end
 
+------------------------------------------------------------------------------------------------------------
 
 function ROIProcessor:getROIBoxes(idx)
     return self.roidb[idx]
 end
 
+------------------------------------------------------------------------------------------------------------
 
 function ROIProcessor:getGTBoxes(idx)
     return self.dataLoadFn.getGTBoxes(idx)
 end
 
+------------------------------------------------------------------------------------------------------------
 
 function ROIProcessor:getFilename(idx)
     return self.dataLoadFn.getFilename(idx)
 end
 
+------------------------------------------------------------------------------------------------------------
 
 function ROIProcessor:getProposals(idx)
-  
+
     -- check if there are any roi boxes for the current image
     if self.dataLoadFn.getGTBoxes(idx) ~= nil then
         return nil
     end
-    
+
     -- fetch roi proposal boxes
     local boxes = self:getROIBoxes(idx)
-    
-    -- fetch object boxes, classes 
+
+    -- fetch object boxes, classes
     local gt_boxes, gt_classes = self:getGTBoxes(idx)
-    
-    local all_boxes 
+
+    local all_boxes
     if boxes:numel() > 0 and gt_boxes:numel() > 0 then
         all_boxes = torch.cat(gt_boxes,boxes,1)
     elseif boxes:numel() == 0 then
@@ -56,10 +64,10 @@ function ROIProcessor:getProposals(idx)
     else
         all_boxes = boxes
     end
-    
+
     local num_boxes = boxes:numel() > 0 and boxes:size(1) or 0
     local num_gt_boxes = #gt_classes
-    
+
     -- data recipient
     local rec = {}
     if num_gt_boxes > 0 and num_boxes > 0 then
@@ -81,7 +89,7 @@ function ROIProcessor:getProposals(idx)
         tmp[tmp:lt(o)] = o[tmp:lt(o)]
         rec.overlap[{{},idx}] = boxoverlap(all_boxes,gt_boxes[idx])
     end
-    
+
     -- correspondence
     if num_gt_boxes > 0 then
         rec.overlap, rec.correspondance = rec.overlap:max(2)
@@ -92,8 +100,8 @@ function ROIProcessor:getProposals(idx)
         rec.overlap = torch.FloatTensor(num_boxes+num_gt_boxes):fill(0)
         rec.correspondance = torch.LongTensor(num_boxes+num_gt_boxes):fill(0)
     end
-    
-    -- set class label 
+
+    -- set class label
     rec.label = torch.IntTensor(num_boxes+num_gt_boxes):fill(0)
     for idx=1,(num_boxes+num_gt_boxes) do
         local corr = rec.correspondance[idx]
@@ -101,7 +109,7 @@ function ROIProcessor:getProposals(idx)
             rec.label[idx] = gt_classes[corr]
         end
     end
-    
+
     rec.boxes = all_boxes
     if num_gt_boxes > 0 and num_boxes > 0 then
         rec.class = torch.cat(torch.CharTensor(gt_classes), torch.CharTensor(num_boxes):fill(0))

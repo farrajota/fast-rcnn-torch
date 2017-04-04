@@ -5,22 +5,17 @@
 
 local function LoadConfigs(model, dataLoadTable, rois, modelParameters, opts)
 
-    -------------------------------------------------------------------------------
-    -- Load necessary libraries and files
-    -------------------------------------------------------------------------------
-
     torch.setdefaulttensortype('torch.FloatTensor')
-
 
     -------------------------------------------------------------------------------
     -- Process command line options
     -------------------------------------------------------------------------------
-    
+
     local opt, optimState, optimStateFn, nEpochs
 
     local Options = fastrcnn.Options()
     opt = Options:parse(opts or {})
-    
+
     print('Saving everything to: ' .. opt.savedir)
     os.execute('mkdir -p ' .. opt.savedir)
 
@@ -41,7 +36,7 @@ local function LoadConfigs(model, dataLoadTable, rois, modelParameters, opts)
             weightDecay = opt.weightDecay
         }
     end
-    
+
     -- define optim state function ()
     if type(opt.schedule) == 'table' then
         -- setup schedule
@@ -51,8 +46,8 @@ local function LoadConfigs(model, dataLoadTable, rois, modelParameters, opts)
             table.insert(schedule, {schedule_id+1, schedule_id+opt.schedule[i][1], opt.schedule[i][2], opt.schedule[i][3]})
             schedule_id = schedule_id+opt.schedule[i][1]
         end
-        
-        optimStateFn = function(epoch) 
+
+        optimStateFn = function(epoch)
             for k, v in pairs(schedule) do
                 if v[1] <= epoch and v[2] >= epoch then
                     return {
@@ -67,42 +62,42 @@ local function LoadConfigs(model, dataLoadTable, rois, modelParameters, opts)
             end
             return optimState
         end
-        
+
         -- determine the maximum number of epochs
         for k, v in pairs(schedule) do
             nEpochs = v[2]
         end
-        
+
     else
         optimStateFn = function(epoch) return optimState end
     end
 
     -- Random number seed
-    if opt.manualSeed ~= -1 then 
+    if opt.manualSeed ~= -1 then
         torch.manualSeed(opt.manualSeed)
-    else 
-        torch.seed() 
+    else
+        torch.seed()
     end
-    
-    
+
+
     -------------------------------------------------------------------------------
     -- Preprocess rois
     -------------------------------------------------------------------------------
-    
+
     do
         local nSamples = 1000
         print('Compute bbox regression mean/std values over '..nSamples..' train images...')
         local tic = torch.tic()
         local batchprovider = fastrcnn.BatchROISampler(dataLoadTable.train, rois.train, modelParameters, opt, 'train')
-        
+
         -- compute regression mean/std
-        opt.bbox_meanstd = batchprovider:setupData(nSamples) 
-        
+        opt.bbox_meanstd = batchprovider:setupData(nSamples)
+
         print('Done. Elapsed time: ' .. torch.toc(tic))
         print(opt.bbox_meanstd)
     end
-    
-    
+
+
     -------------------------------------------------------------------------------
     -- Setup criterion
     -------------------------------------------------------------------------------
@@ -124,7 +119,7 @@ local function LoadConfigs(model, dataLoadTable, rois, modelParameters, opts)
         opt.data_type = 'torch.CudaTensor'
         model:cuda()
         criterion:cuda()
-      
+
         -- require cudnn if available
         if pcall(require, 'cudnn') then
             cudnn.convert(model, cudnn):cuda()
@@ -140,34 +135,34 @@ local function LoadConfigs(model, dataLoadTable, rois, modelParameters, opts)
         model:float()
         criterion:float()
     end
-    
+
     local function cast(x) return x:type(opt.data_type) end
-    
-    -- add mean/std norm 
+
+    -- add mean/std norm
     --[[
     modelOut:add(model)
     modelOut:add(nn.ParallelTable()
         :add(nn.Identity())
         :add(nn.BBoxNorm(rois_preprocessed.train.meanstd.mean, rois_preprocessed.train.meanstd.std)))
     --]]
-    
+
     --
     model:add(nn.ParallelTable()
         :add(nn.Identity())
-        :add(nn.BBoxNorm(opt.bbox_meanstd.mean, opt.bbox_meanstd.std)))    
+        :add(nn.BBoxNorm(opt.bbox_meanstd.mean, opt.bbox_meanstd.std)))
       modelOut:add(model)
     --
     cast(modelOut)
-    
+
     if opt.verbose then
         print('Network:')
         print(model)
     end
-    
+
     -- Save options to experiment directory
-    torch.save(opt.savedir .. '/options.t7', opt)
-    torch.save(opt.savedir .. '/model_parameters.t7', modelParameters)
-    
+    torch.save(paths.concat(opt.savedir, 'options.t7'), opt)
+    torch.save(paths.concat(opt.savedir, 'model_parameters.t7'), modelParameters)
+
     return opt, modelOut, criterion, optimStateFn, nEpochs
 end
 

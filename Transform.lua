@@ -2,7 +2,12 @@
     Image/bounding box transformations.
 ]]
 
+
 require 'image'
+
+if not fastrcnn then fastrcnn = {} end
+
+------------------------------------------------------------------------------------------------------------
 
 local Transform = torch.class('fastrcnn.Transform')
 
@@ -10,20 +15,21 @@ function Transform:__init(modelParameters, opt, mode)
     assert(opt)
     assert(modelParameters)
     assert(mode)
-    
+
     -- model
     self.colourspace = modelParameters.colourspace
     self.pixel_scale = modelParameters.pixel_scale
     self.meanstd = modelParameters.meanstd
-    
+
     -- frcnn options
     self.hflip_prob = (mode=='train' and opt.frcnn_hflip) or 0
     self.scale = (mode=='train' and opt.frcnn_scales) or (mode=='test' and opt.frcnn_test_scales) or 600
     self.max_size = (mode=='train' and opt.frcnn_max_size) or (mode=='test' and opt.frcnn_test_max_size) or 1000
-    
+
     self.interpolation = 'bicubic'
 end
 
+------------------------------------------------------------------------------------------------------------
 
 function Transform:SetColourSpace(input)
     local opts = {
@@ -47,6 +53,7 @@ function Transform:SetColourSpace(input)
     return convertFn(input)
 end
 
+------------------------------------------------------------------------------------------------------------
 
 function Transform:ScaleLimit(input)
     local interpolation = self.interpolation or 'bicubic'
@@ -56,12 +63,13 @@ function Transform:ScaleLimit(input)
     local im_size_max = math.max(iH, iW);
     local scale = self.scale / im_size_min
     -- Prevent the biggest axis from being more than MAX_SIZE
-    if math.floor(scale*im_size_max+0.5) > self.max_size then 
-        scale = self.max_size / im_size_max 
+    if math.floor(scale*im_size_max+0.5) > self.max_size then
+        scale = self.max_size / im_size_max
     end
     return image.scale(input, math.floor(iW*scale+0.5), math.floor(iH*scale+0.5), interpolation), scale
 end
 
+------------------------------------------------------------------------------------------------------------
 
 function Transform:NormalizePixelLimit(input)
     local min = input:min()
@@ -69,11 +77,13 @@ function Transform:NormalizePixelLimit(input)
     return input:add(-min):div(max-min)
 end
 
+------------------------------------------------------------------------------------------------------------
 
 function Transform:SetPixelScale(input)
     return input:mul(self.pixel_scale)
 end
 
+------------------------------------------------------------------------------------------------------------
 
 function Transform:HorizontalFlip(input)
     local is_flipped = false
@@ -84,6 +94,7 @@ function Transform:HorizontalFlip(input)
     return input, is_flipped
 end
 
+------------------------------------------------------------------------------------------------------------
 
 function Transform:ColourNormalize(input)
     for i=1,input:size(1) do
@@ -93,21 +104,24 @@ function Transform:ColourNormalize(input)
     return input
 end
 
+------------------------------------------------------------------------------------------------------------
 
 function Transform:ColourJitter()
     --TODO
 end
 
+------------------------------------------------------------------------------------------------------------
 
 function Transform:Rotate()
     --TODO
 end
 
+------------------------------------------------------------------------------------------------------------
 
 function Transform:image(im)
     local out = im:clone()
     local is_flipped, scale
-    
+
     -- colourspace convertion
     out = self:SetColourSpace(out)
     -- pixel scale
@@ -118,8 +132,8 @@ function Transform:image(im)
     out = self:ColourNormalize(out)
     -- scale
     out, scale = self:ScaleLimit(out)
-    
+
     collectgarbage()
-    
+
     return out, scale, {out:size(2), out:size(3)}, is_flipped
 end

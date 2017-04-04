@@ -3,17 +3,11 @@
 --]]
 
 
-local ffi = require 'ffi'
-local tds = require 'tds'
-local utils = paths.dofile('utils/init.lua')
-
-------------------------------------------------------------------------------------------------
-
 local function test(dataset, roi_proposals, model, modelParameters, opt, eval_mode)
-  
+
     assert(dataset)
     assert(roi_proposals)
-    assert(model)  
+    assert(model)
     assert(modelParameters)
     assert(opt)
 
@@ -26,7 +20,7 @@ local function test(dataset, roi_proposals, model, modelParameters, opt, eval_mo
     else
         roi_boxes = roi_proposals
     end
-    
+
     -- test class
     local Tester = fastrcnn.Tester(dataset, roi_boxes, model, modelParameters, opt, evaluation_mode)
 
@@ -34,7 +28,5 @@ local function test(dataset, roi_proposals, model, modelParameters, opt, eval_mo
     local mAP_score = Tester:test()
     return mAP_score
 end
-
-------------------------------------------------------------------------------------------------
 
 return test

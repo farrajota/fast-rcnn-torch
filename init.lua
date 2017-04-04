@@ -2,6 +2,7 @@
     Fast-RCNN class. Has train, test and detect functions.
 ]]
 
+require 'paths'
 require 'torch'
 require 'xlua'
 require 'optim'
@@ -16,13 +17,13 @@ require 'inn'
 
 fastrcnn = {}
 
-require 'modules'
-
--- frcnn classes
+require 'modules'         -- bbox modules for train/test
 require 'BatchROISampler' -- data loader/generator
 require 'ImageDetector'   -- single image detector/tester
 require 'Tester'          -- dataset tester
 require 'Options'         -- Fast-RCNN options parser
+require 'ROIProcessor'
+require 'Transform'
 
 -- load setup/options functions
 fastrcnn.train = require 'train'
