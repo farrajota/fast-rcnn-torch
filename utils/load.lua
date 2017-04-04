@@ -1,21 +1,29 @@
 --[[
-    Load roi proposals from matlab files.
-    
-    These files can contain more than one field, which allows for datasets with alot of boxes/files to be stored conveniently in a format that the package 'matio' can read (i.e., files in the format v7.0 and lower).
-    
-    Note: This assumes that the roi proposals are in the format [y1,x1,y2,x2] and will be converted to [x1,t1,x2,y2].
+    Load functions utilities.
+
+    Matlab
+    ======
+
+        Load roi proposals from matlab files.
+
+        These files can contain more than one field, which allows for datasets with alot of boxes/files to
+        be stored conveniently in a format that the package 'matio' can read (i.e., files in the format v7.0 and lower).
+
+        Note: This assumes that the roi proposals are in the format [y1,x1,y2,x2] and will be converted to [x1,t1,x2,y2].
 ]]
 
 
 local matio = require 'matio'
 local dir = require 'pl.dir'
 
----------------------------------------------------------------------------------------------------------------------
-  
-local function LoadMatlabFiles(path)
-    assert(type(path) == 'string' or type(path) == 'table', 'Path must be either a string or a table of strings: ' .. type(path))
+------------------------------------------------------------------------------------------------------------
 
-    if type(path) == 'table' then
+local function LoadMatlabFiles(path)
+    assert(path)
+    local type_input = type(path)
+    assert(type_input == 'string' or type_input == 'table', 'Path must be either a string or a table of strings: ' .. type(path))
+
+    if type_input == 'table' then
         -- get all roi boxes tensors
         local roi_boxes = {}
         for i=1, #path do
@@ -26,7 +34,7 @@ local function LoadMatlabFiles(path)
     else
         local data = matio.load(path)
         assert(data)
-        
+
         -- check if it containers more than one field
         local counter = 0
         for k, _ in pairs(data) do
@@ -35,7 +43,7 @@ local function LoadMatlabFiles(path)
             end
         end
         assert(counter > 0, 'File doesn\'t contain any bbox proposals data: ' .. path)
-      
+
         local roi_boxes = {}
         if counter == 1 then
             roi_boxes = data.boxes
@@ -45,7 +53,7 @@ local function LoadMatlabFiles(path)
             end
             roi_boxes = torch.FloatTensor():cat(roi_boxes,1)
         end
-        
+
         if type(roi_boxes) == 'table' then
             -- flip to correct order ([y1,x1,y2,x2] -> [x1,y1,x2,y2])
             local range = torch.range(1,roi_boxes[1]:size(2)):long() -- might have more :size(2) > 4
@@ -55,7 +63,7 @@ local function LoadMatlabFiles(path)
                     if roi_boxes[ifile]:numel() > 1 then
                         roi_boxes[ifile] = roi_boxes[ifile]:index(2, range):float()
                     else
-                        if roi_boxes[ifile]:sum() > 0 then 
+                        if roi_boxes[ifile]:sum() > 0 then
                             roi_boxes[ifile] = roi_boxes[ifile]:index(2, range):float()
                         else
                           roi_boxes[ifile] = torch.FloatTensor()
@@ -70,13 +78,13 @@ local function LoadMatlabFiles(path)
             range[1],range[2],range[3],range[4] = 2,1,4,3
             roi_boxes = roi_boxes:index(2, range):float()
         end
-        
+
         -- output boxes
         return roi_boxes
     end
 end
 
----------------------------------------------------------------------------------------------------------------------
+------------------------------------------------------------------------------------------------------------
 
 local function LoadMatlabPath(path)
     assert(path)
@@ -90,9 +98,11 @@ local function LoadMatlabPath(path)
     return roi_boxes
 end
 
----------------------------------------------------------------------------------------------------------------------
+------------------------------------------------------------------------------------------------------------
 
 return {
-    loadSingleFile = LoadMatlabFiles,
-    loadMultiFiles = LoadMatlabPath
+    matlab = {
+        single = LoadMatlabFiles,
+        multi = LoadMatlabPath
+    }
 }

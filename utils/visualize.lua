@@ -2,12 +2,12 @@
     Visualize detections using a GUI window (requires qlua/qt).
 ]]
 
-local utils = paths.dofile('init.lua')
+local nms = require 'utils.nms'
 
 ---------------------------------------------------------------------------------------------------------------------
 
 local function visualize_detections(im, boxes, scores, visualization_thresh, nms_thresh, classes)
-    local ok = pcall(require,'qt')
+    local ok = pcall(require, 'qt')
     if not ok then
         error('You need to run visualize_detections using qlua')
     end
@@ -21,10 +21,10 @@ local function visualize_detections(im, boxes, scores, visualization_thresh, nms
 
     -- select best scoring boxes without background
     local max_score, maxID = scores[{{},{2,-1}}]:max(2)
-    
+
     -- max id
     local idx = maxID:squeeze():gt(1):cmul(max_score:gt(visualization_thresh)):nonzero()
-    
+
     if idx:numel()==0 then
         local x,y = im:size(3),im:size(2)
         local w = qtwidget.newwindow(x,y,"Fast R-CNN for Torch7! No objects detected on this frame")
@@ -33,22 +33,22 @@ local function visualize_detections(im, boxes, scores, visualization_thresh, nms
         local fontsize = 16
         return w
     end
-      
+
     idx=idx:select(2,1)
     boxes = boxes:index(1, idx)
     maxID = maxID:index(1, idx)
     max_score = max_score:index(1, idx)
-    
-    -- select bbox 
+
+    -- select bbox
     local boxes_thresh = {}
     for i=1, boxes:size(1) do
         local label = maxID[i][1]
         table.insert(boxes_thresh, boxes[i]:narrow(1,(label-1)*4 + 1,4):totable())
     end
     boxes_thresh = torch.FloatTensor(boxes_thresh)
-    
+
     local scored_boxes = torch.cat(boxes_thresh:float(), max_score:float(), 2)
-    local keep = utils.nms_dense(scored_boxes, 0.3)
+    local keep = nms.dense(scored_boxes, 0.3)
 
     boxes_thresh = boxes_thresh:index(1,keep)
     max_score = max_score:index(1,keep):squeeze()
@@ -60,7 +60,7 @@ local function visualize_detections(im, boxes, scores, visualization_thresh, nms
 
     local x,y = im:size(3),im:size(2)
     local w = qtwidget.newwindow(x,y,"Fast R-CNN for Torch7!")
-    
+
     local qtimg = qt.QImage.fromTensor(im)
     w:image(0,0,x,y,qtimg)
     local fontsize = 16
