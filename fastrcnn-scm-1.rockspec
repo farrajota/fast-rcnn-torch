@@ -6,14 +6,14 @@ source = {
     url = "git://github.com/farrajota/fast-rcnn.git",
     tag = "master"
  }
- 
+
 description = {
-    summary = "Fast-RCNN code for Torch7.",
+    summary = "Fast-RCNN package for Torch7.",
     detailed = [[
-       Fast-RCNN implementation for Torch7. This package allows to train, test and implement an FRCNN object detector.
+       Fast-RCNN implementation for Torch7. This package allows to easily train, test and implement an FRCNN object detector in Lua.
     ]],
     homepage = "https://github.com/farrajota/fast-rcnn",
-    license = "BSD",
+    license = "MIT",
     maintainer = "Farrajota"
  }
 
@@ -28,10 +28,10 @@ dependencies = {
 build = {
    type = "command",
    build_command = [[
-cmake -E make_directory build;
-cd build;
-cmake .. -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH="$(LUA_BINDIR)/.." -DCMAKE_INSTALL_PREFIX="$(PREFIX)"; 
-$(MAKE)
+        cmake -E make_directory build;
+        cd build;
+        cmake .. -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH="$(LUA_BINDIR)/.." -DCMAKE_INSTALL_PREFIX="$(PREFIX)";
+        $(MAKE)
    ]],
    install_command = "cd build && $(MAKE) install"
 }
