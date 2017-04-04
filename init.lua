@@ -16,21 +16,18 @@ require 'inn'
 
 fastrcnn = {}
 
--- modules
-paths.dofile('modules/BBoxNorm.lua')
-paths.dofile('modules/NoBackprop.lua')
-paths.dofile('modules/BBoxRegressionCriterion.lua')
+require 'modules'
 
 -- frcnn classes
-paths.dofile('BatchROISampler.lua') -- data loader/generator
-paths.dofile('ImageDetector.lua')   -- single image detector/tester
-paths.dofile('Tester.lua')          -- dataset tester
-paths.dofile('Options.lua')         -- Fast-RCNN options parser
+require 'BatchROISampler' -- data loader/generator
+require 'ImageDetector'   -- single image detector/tester
+require 'Tester'          -- dataset tester
+require 'Options'         -- Fast-RCNN options parser
 
 -- load setup/options functions
-fastrcnn.train = paths.dofile('train.lua')
-fastrcnn.test = paths.dofile('test.lua')
-fastrcnn.utils = paths.dofile('utils/init.lua')
-fastrcnn.visualize_detections = paths.dofile('utils/visualize.lua')
+fastrcnn.train = require 'train'
+fastrcnn.test = require 'test'
+fastrcnn.utils = require 'utils'
+fastrcnn.visualize_detections = require 'utils.visualize'
 
 return fastrcnn
