@@ -11,6 +11,15 @@ void NMS(THFloatTensor *keep, THFloatTensor *scored_boxes, float overlap);
 local ok, C = pcall(ffi.load, package.searchpath('libfastrcnn', package.cpath))
 assert(ok, 'Installation went wrong when compiling the C code.')
 
+------------------------------------------------------------------------------------------------------------
+
+local function bbox_vote(nms_boxes, scored_boxes, threshold)
+   local res = torch.FloatTensor()
+   C.bbox_vote(res:cdata(), nms_boxes:cdata(), scored_boxes:cdata(), threshold)
+   return res
+end
+
+------------------------------------------------------------------------------------------------------------
 
 local function nms_fast(boxes, overlap)
    local keep = torch.FloatTensor()
@@ -18,6 +27,7 @@ local function nms_fast(boxes, overlap)
    return keep
 end
 
+------------------------------------------------------------------------------------------------------------
 
 local function nms_dense(boxes, overlap)
     local n_boxes = boxes:size(1)
@@ -81,8 +91,11 @@ local function nms_dense(boxes, overlap)
     return pick
 end
 
+------------------------------------------------------------------------------------------------------------
 
 return {
     fast = nms_fast,
     dense = nms_dense,
+
+    bbox_vote = bbox_vote
 }

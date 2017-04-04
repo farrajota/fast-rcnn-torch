@@ -102,7 +102,7 @@ end
 
 return {
     matlab = {
-        single = LoadMatlabFiles,
-        multi = LoadMatlabPath
+        single_file = LoadMatlabFiles,
+        multiple_files = LoadMatlabPath
     }
 }

@@ -115,6 +115,6 @@ return {
     tds_to_table = tds_to_table,
     recursiveCopy = recursiveCopy,
     recursiveCast = recursiveCast,
-    ConcatTables = ConcatTables,
+    concatTables = ConcatTables,
     joinTable = joinTable,
 }
