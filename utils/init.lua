@@ -72,6 +72,9 @@ return {
     -- load matlab files
     load = require 'utils.load',
 
+    -- visualize object detections with a window
+    visualize_detections = require 'utils.visualize',
+
     -- other functions
     logical2ind = logical2ind,
 
