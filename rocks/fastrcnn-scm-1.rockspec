@@ -3,7 +3,7 @@ package = "fastrcnn"
 version = "scm-1"
 
 source = {
-    url = "git://github.com/farrajota/fast-rcnn.git",
+    url = "git://github.com/farrajota/fast-rcnn-torch.git",
     tag = "master"
  }
 
@@ -12,17 +12,18 @@ description = {
     detailed = [[
        Fast-RCNN implementation for Torch7. This package allows to easily train, test and implement an FRCNN object detector in Lua.
     ]],
-    homepage = "https://github.com/farrajota/fast-rcnn",
+    homepage = "https://github.com/farrajota/fast-rcnn-torch",
     license = "MIT",
     maintainer = "Farrajota"
  }
 
 dependencies = {
-    "lua ~> 5.1",
     "torch >= 7.0",
+    "cudnn >= scm-1",
     "tds >= scm-1",
     "matio >= scm-1",
-    "torchnet >= scm-1"
+    "torchnet >= scm-1",
+    "inn >= 1.0-0"
 }
 
 build = {
