@@ -1,40 +1,28 @@
---[[----------------------------------------------------------------------------
-Copyright (c) 2016-present, Facebook, Inc. All rights reserved.
-This source code is licensed under the BSD-style license found in the
-LICENSE file in the root directory of this source tree. An additional grant
-of patent rights can be found in the PATENTS file in the same directory.
+--[[
+    Execute coco evaluation code in python via Lua.
+]]
 
-------------------------------------------------------------------------------]]
 
-local class = require 'class'
-local py = require 'fb.python'
+local function coco_eval_python(annFile, res)
+    assert(annFile)
+    assert(res)
 
-local Coco = class('coco')
+    local command = ('import sys;' ..
+                    'from pycocotools.coco import COCO;' ..
+                    'from pycocotools.cocoeval import COCOeval;' ..
+                    'cocoGt = COCO(\'%s\');' ..
+                    'cocoDt = cocoGt.loadRes(\'%s\');' ..
+                    'imgIds = sorted(cocoDt.imgToAnns.keys());' ..
+                    'imgIds = imgIds[0:len(imgIds)];' ..
+                    'cocoEval = COCOeval(cocoGt,cocoDt);' ..
+                    'cocoEval.params.imgIds = imgIds;' ..
+                    'cocoEval.evaluate();' ..
+                    'cocoEval.accumulate();' ..
+                    'cocoEval.summarize();' ..
+                    'stats = cocoEval.stats;'
+                    :format(annFile, res)
 
-function Coco:__init(annFile)
-py.exec('import sys')
-py.exec('from pycocotools.coco import COCO')
-py.exec('from pycocotools.cocoeval import COCOeval')
-py.exec([=[
-global cocoGt
-cocoGt = COCO(annFile)
-]=], {annFile=annFile})
+    os.execute(('python -c "%s"'):format(command))
 end
 
-function Coco:evaluate(res)
-py.exec([=[
-global stats
-cocoDt = cocoGt.loadRes(res)
-imgIds=sorted(cocoDt.imgToAnns.keys())
-imgIds=imgIds[0:len(imgIds)]
-cocoEval = COCOeval(cocoGt,cocoDt)
-cocoEval.params.imgIds  = imgIds
-cocoEval.evaluate()
-cocoEval.accumulate()
-cocoEval.summarize()
-stats = cocoEval.stats
-]=], {res=res})
-return py.eval('stats')
-end
-
-return Coco
+return coco_eval_python

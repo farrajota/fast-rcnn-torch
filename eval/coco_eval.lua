@@ -3,8 +3,8 @@
 ]]
 
 
-local coco = paths.dofile('coco.lua')
 require 'xlua'
+local coco_eval_python = require 'eval.coco'
 
 ------------------------------------------------------------------------------------------------------------
 
@@ -33,7 +33,7 @@ local function evaluate(dataset_name, res)
       -- xlua.progress(class, nClasses)
     end
     print("Total boxes: " .. nboxes)
-    
+
     local boxt = torch.FloatTensor(nboxes, 7)
 
     print("Loading files to create giant tensor...")
@@ -56,10 +56,10 @@ local function evaluate(dataset_name, res)
       -- xlua.progress(class, nClasses)
     end
 
-  
 
-    local coco = Coco(annFile)
-    return coco:evaluate(boxt)
+    --local coco = Coco(annFile)
+    --return coco:evaluate(boxt)
+    return coco_eval_python(annFile, boxt)
 end
 
 ------------------------------------------------------------------------------------------------------------

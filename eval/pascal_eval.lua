@@ -2,13 +2,15 @@
     Pascal VOC mAP evaluation.
 ]]
 
-local boxoverlap = paths.dofile('../utils/boxoverlap.lua')
+
+local box = require 'utils.box'
+local boxoverlap = box.boxoverlap
 
 ---------------------------------------------------------------------------------------------------------------------
 
 -- source: https://github.com/fmassa/object-detection.torch/blob/master/utils.lua#L61
--- compute average precision
 local function VOCap(rec,prec)
+--[[ compute average precision ]]
     local ap = 0
     for t=0,1,0.1 do
         local c = prec[rec:ge(t)]
@@ -26,25 +28,25 @@ end
 ---------------------------------------------------------------------------------------------------------------------
 
 -- adapted from: https://github.com/fmassa/object-detection.torch/blob/master/utils.lua#L128
--- compute average precision (AP), recall and precision
 local function VOCevaldet(BBoxLoaderFn, nFiles, scored_boxes, classID)
-  
+--[[ compute average precision (AP), recall and precision ]]
+
     assert(BBoxLoaderFn)
     assert(nFiles)
     assert(scored_boxes)
     assert(classID)
-    
+
     local num_pr = 0
     local energy = {}
     local correct = {}
-    
+
     local count = 0
-    
+
     for ifile=1, nFiles do
         -- fetch all bboxes belonging to this file and for this classID
         local bbox = {}
         local det = {}
-        
+
         local boxes, labels = BBoxLoaderFn(ifile)
         for ibb=1, #boxes do
             if labels[ibb] == classID then
@@ -53,16 +55,16 @@ local function VOCevaldet(BBoxLoaderFn, nFiles, scored_boxes, classID)
                 count = count + 1
             end
         end
-        
+
         bbox = torch.Tensor(bbox)
         det = torch.Tensor(det)
-        
+
         local num = scored_boxes[ifile]:numel()>0 and scored_boxes[ifile]:size(1) or 0
         for j=1, num do
             local bbox_pred = scored_boxes[ifile][j]
             num_pr = num_pr + 1
             table.insert(energy,bbox_pred[5])
-            
+
             if bbox:numel()>0 then
                 local o = boxoverlap(bbox,bbox_pred[{{1,4}}])
                 local maxo,index = o:max(1)
@@ -75,25 +77,25 @@ local function VOCevaldet(BBoxLoaderFn, nFiles, scored_boxes, classID)
                     correct[num_pr] = 0
                 end
             else
-                correct[num_pr] = 0        
+                correct[num_pr] = 0
             end
         end
     end
-    
-    if #energy == 0 then 
-        return 0, torch.Tensor(), torch.Tensor() 
+
+    if #energy == 0 then
+        return 0, torch.Tensor(), torch.Tensor()
     end
-    
+
     energy = torch.Tensor(energy)
     correct = torch.Tensor(correct)
-    
+
     local threshold,index = energy:sort(true)
 
     correct = correct:index(1,index)
 
     -- compute recall + precision
     local n = threshold:numel()
-    
+
     local recall = torch.zeros(n)
     local precision = torch.zeros(n)
 
@@ -108,7 +110,7 @@ local function VOCevaldet(BBoxLoaderFn, nFiles, scored_boxes, classID)
         else
             precision[i] = 0;
         end
-        
+
         --compute recall
         recall[i] = num_correct / count
     end
@@ -123,12 +125,12 @@ end
 ---------------------------------------------------------------------------------------------------------------------
 
 local function evaluate(BBoxLoaderFn, nfiles, classes, aboxes)
-    
+
     assert(BBoxLoaderFn)
     assert(nfiles)
     assert(classes)
     assert(aboxes)
-    
+
      -- (2) Compute mAP of the selected boxes wrt the ground truth boxes from the dataset
     print('==> Computing mean average precision')
     print('==> [class name] | [average precision]')
@@ -143,7 +145,7 @@ local function evaluate(BBoxLoaderFn, nfiles, classes, aboxes)
     print('\n*****************')
     print(('mean AP: %0.5f'):format(mAP))
     print('*****************\n')
-    
+
     return mAP
 end
 
