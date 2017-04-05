@@ -274,6 +274,7 @@ function Tester:computeAP(aboxes)
     else
         --return eval.coco(self:getBBoxLoaderFn(), self.classes, aboxes)
         --return testCoco.evaluate(self.dataset.dataset_name, aboxes_)
+        return eval.coco(self.dataLoadFn.getGTBoxes, self.nFiles, self.classes, aboxes)
     end
 end
 

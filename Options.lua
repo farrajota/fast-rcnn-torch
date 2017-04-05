@@ -122,7 +122,7 @@ function Options:parse(opts)
     {arg='frcnn_test_nms_thresh', type='number', default=0.3,
      help='Non-Maximum suppression threshold.'},
     {arg='frcnn_test_bbox_voting_nms_thresh', type='number', default=0.5,
-     help='Bbox voting Non-Maximum suppression threshold.'},
+     help='BBox voting Non-Maximum suppression threshold.'},
     {arg='frcnn_test_mode', type='string', default='voc',
      help='mAP testing format: voc, coco'},
 

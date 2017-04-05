@@ -106,32 +106,15 @@ end
 
 ------------------------------------------------------------------------------------------------------------
 
-function Transform:ColourJitter()
-    --TODO
-end
-
-------------------------------------------------------------------------------------------------------------
-
-function Transform:Rotate()
-    --TODO
-end
-
-------------------------------------------------------------------------------------------------------------
-
 function Transform:image(im)
     local out = im:clone()
     local is_flipped, scale
 
-    -- colourspace convertion
-    out = self:SetColourSpace(out)
-    -- pixel scale
-    out = self:SetPixelScale(out)
-    -- flip
-    out, is_flipped = self:HorizontalFlip(out)
-    -- mean/std norm
-    out = self:ColourNormalize(out)
-    -- scale
-    out, scale = self:ScaleLimit(out)
+    out = self:SetColourSpace(out) -- colourspace convertion
+    out = self:SetPixelScale(out)  -- pixel scale
+    out, is_flipped = self:HorizontalFlip(out) -- flip
+    out = self:ColourNormalize(out)   -- mean/std norm
+    out, scale = self:ScaleLimit(out) -- scale
 
     collectgarbage()
 

@@ -1,5 +1,7 @@
 --[[
     Samples batches of data for train/test.
+
+    Some parts of this file's code' has been derived from https://github.com/facebookresearch/multipathnet.
 ]]
 
 
@@ -39,16 +41,6 @@ function BatchSampler:__init(dataLoadFn, proposals, modelParameters, opt, mode)
     self.verbose = opt.verbose or false
     self.bbox_meanstd = opt.bbox_meanstd
     self.nFiles = self.dataset.nFiles
-
-
-
-
-
-    --self.scale_jitter    = scale_jitter or 0    -- uniformly jitter the scale by this frac
-    --self.aspect_jitter   = aspect_jitter or 0   -- uniformly jitter the scale by this frac
-    --self.crop_likelihood = crop_likelihood or 0 -- likelihood of doing a random crop (in each dimension, independently)
-    --self.crop_attempts = 10                     -- number of attempts to try to find a valid crop
-    --self.crop_min_frac = 0.7 -- a crop must preserve at least this fraction of the iamge
 end
 
 ------------------------------------------------------------------------------------------------------------

@@ -139,19 +139,11 @@ local function LoadConfigs(model, dataLoadTable, rois, modelParameters, opts)
     local function cast(x) return x:type(opt.data_type) end
 
     -- add mean/std norm
-    --[[
-    modelOut:add(model)
-    modelOut:add(nn.ParallelTable()
-        :add(nn.Identity())
-        :add(nn.BBoxNorm(rois_preprocessed.train.meanstd.mean, rois_preprocessed.train.meanstd.std)))
-    --]]
-
-    --
     model:add(nn.ParallelTable()
-        :add(nn.Identity())
-        :add(nn.BBoxNorm(opt.bbox_meanstd.mean, opt.bbox_meanstd.std)))
-      modelOut:add(model)
-    --
+         :add(nn.Identity())
+         :add(nn.BBoxNorm(opt.bbox_meanstd.mean, opt.bbox_meanstd.std)))
+    modelOut:add(model)
+
     cast(modelOut)
 
     if opt.verbose then

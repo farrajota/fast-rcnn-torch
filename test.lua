@@ -1,28 +1,29 @@
 --[[
-    Test script. Computes the mAP of all proposals. Acts as a wrapper to the fastrcnn.Tester class.
+    Test script. Computes the mAP of all proposals.
+    Acts as a wrapper to the fastrcnn.Tester class.
 --]]
 
 
-local function test(dataset, roi_proposals, model, modelParameters, opt, eval_mode)
+local function test(dataLoadTable, rois, model, modelParameters, opt)
 
-    assert(dataset)
-    assert(roi_proposals)
+    assert(dataLoadTable)
+    assert(rois)
     assert(model)
     assert(modelParameters)
     assert(opt)
 
-    local evaluation_mode = eval_mode or 'voc'
+    local evaluation_mode = opt.frcnn_test_mode or 'voc'
 
     -- load roi boxes from file into memory
     local roi_boxes
-    if roi_proposals.test then
-        roi_boxes = roi_proposals.test
+    if rois.test then
+        roi_boxes = rois.test
     else
-        roi_boxes = roi_proposals
+        roi_boxes = rois
     end
 
     -- test class
-    local Tester = fastrcnn.Tester(dataset, roi_boxes, model, modelParameters, opt, evaluation_mode)
+    local Tester = fastrcnn.Tester(dataLoadTable, roi_boxes, model, modelParameters, opt, evaluation_mode)
 
     -- compute the mAP score
     local mAP_score = Tester:test()
