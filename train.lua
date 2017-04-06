@@ -217,12 +217,12 @@ local function train(dataLoadTable, rois, model, modelParameters, opts)
             loggers.train_conf:add{tr:__tostring__()} -- output the confusion matrix as a string
 
             print('\n**Train epoch finished**')
-            print(('Train Loss: (total: %0.5f; classification: %0.5f; bbox: %0.5f)  Acc: %0.5f'):format(
-                meters.train_err:value(),
-                meters.train_cls_err:value(),
-                meters.train_bbox_err:value(),
-                meters.train_clerr:value()[1]
-            ))
+            print(('Train Loss: (total: %0.5f; classification: %0.5f; bbox: %0.5f)  Acc: %0.5f')
+                  :format(meters.train_err:value(),
+                          meters.train_cls_err:value(),
+                          meters.train_bbox_err:value(),
+                          meters.train_clerr:value()[1])
+            )
             if opt.printConfusion then
                 print(tr)
             else
