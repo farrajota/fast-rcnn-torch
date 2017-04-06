@@ -1,4 +1,4 @@
 require 'nn'
-require 'modules.BBoxNorm'
-require 'modules.BBoxRegressionCriterion'
-require 'modules.NoBackprop'
+require 'fastrcnn.modules.BBoxNorm'
+require 'fastrcnn.modules.BBoxRegressionCriterion'
+require 'fastrcnn.modules.NoBackprop'

@@ -2,7 +2,7 @@
     Visualize detections using a GUI window (requires qlua/qt).
 ]]
 
-local nms = require 'utils.nms'
+local nms = require 'fastrcnn.utils.nms'
 
 ---------------------------------------------------------------------------------------------------------------------
 

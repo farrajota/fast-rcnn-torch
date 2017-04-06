@@ -3,6 +3,7 @@
 ]]
 
 local ffi = require 'ffi'
+
 ffi.cdef[[
 void bbox_vote(THFloatTensor *res, THFloatTensor *nms_boxes, THFloatTensor *scored_boxes, float threshold);
 void NMS(THFloatTensor *keep, THFloatTensor *scored_boxes, float overlap);

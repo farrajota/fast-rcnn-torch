@@ -4,7 +4,7 @@
 
 
 require 'xlua'
-local coco_eval_python = require 'eval.coco'
+local coco_eval_python = require 'fastrcnn.eval.coco'
 
 ------------------------------------------------------------------------------------------------------------
 

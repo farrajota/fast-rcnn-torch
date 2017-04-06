@@ -35,7 +35,7 @@ local function train(dataLoadTable, rois, model, modelParameters, opts)
     assert(modelParameters)
 
     local tnt = require 'torchnet'
-    local utils = require 'utils'
+    local utils = require 'fastrcnn.utils'
     local modelStorageFn = utils.model.storeModel
 
 
@@ -43,7 +43,7 @@ local function train(dataLoadTable, rois, model, modelParameters, opts)
     -- Load configs (data, model, criterion, optimState)
     --------------------------------------------------------------------------------
 
-    local configs = require 'configs'
+    local configs = require 'fastrcnn.configs'
     local opt, modelOut, criterion, optimStateFn, nEpochs = configs(model, dataLoadTable, rois, modelParameters, opts or {})
     local lopt = opt
 
@@ -73,7 +73,7 @@ local function train(dataLoadTable, rois, model, modelParameters, opts)
              require 'torch'
              require 'torchnet'
              opt = lopt
-             require 'BatchROISampler'
+             require 'fastrcnn.BatchROISampler'
              torch.manualSeed(threadid+opt.manualSeed)
           end,
           closure = function()

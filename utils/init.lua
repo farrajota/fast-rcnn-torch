@@ -58,22 +58,22 @@ end
 
 return {
     -- model utility functions
-    model = require 'utils.model',
+    model = require 'fastrcnn.utils.model',
 
     -- non-maximum suppression
-    nms = require 'utils.nms',
+    nms = require 'fastrcnn.utils.nms',
 
     -- bounding box overlap
-    box = require 'utils.box',
+    box = require 'fastrcnn.utils.box',
 
     -- table functions
-    table = require 'utils.table',
+    table = require 'fastrcnn.utils.table',
 
     -- load matlab files
-    load = require 'utils.load',
+    load = require 'fastrcnn.utils.load',
 
     -- visualize object detections with a window
-    visualize_detections = require 'utils.visualize',
+    --visualize_detections = require 'fastrcnn.utils.visualize',
 
     -- other functions
     logical2ind = logical2ind,

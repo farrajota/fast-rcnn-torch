@@ -5,8 +5,8 @@
 
 local tds = require 'tds'
 local xlua = require 'xlua'
-local eval = require 'eval'
-local utils = require 'utils'
+local eval = require 'fastrcnn.eval'
+local utils = require 'fastrcnn.utils'
 
 if not fastrcnn then fastrcnn = {} end
 

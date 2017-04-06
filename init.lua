@@ -17,18 +17,18 @@ require 'inn'
 
 fastrcnn = {}
 
-require 'modules'         -- bbox modules for train/test
-require 'BatchROISampler' -- data loader/generator
-require 'ImageDetector'   -- single image detector/tester
-require 'Tester'          -- dataset tester
-require 'Options'         -- Fast-RCNN options parser
-require 'ROIProcessor'
-require 'Transform'
+require 'fastrcnn.modules'         -- bbox modules for train/test
+require 'fastrcnn.BatchROISampler' -- data loader/generator
+require 'fastrcnn.ImageDetector'   -- single image detector/tester
+require 'fastrcnn.Tester'          -- dataset tester
+require 'fastrcnn.Options'         -- Fast-RCNN options parser
+require 'fastrcnn.ROIProcessor'
+require 'fastrcnn.Transform'
 
 -- load setup/options functions
-fastrcnn.train = require 'train'
-fastrcnn.test = require 'test'
-fastrcnn.utils = require 'utils'
-fastrcnn.visualize_detections = require 'utils.visualize'
+fastrcnn.train = require 'fastrcnn.train'
+fastrcnn.test = require 'fastrcnn.test'
+fastrcnn.utils = require 'fastrcnn.utils'
+fastrcnn.visualize_detections = require 'fastrcnn.utils.visualize'
 
 return fastrcnn

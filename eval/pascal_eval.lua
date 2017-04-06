@@ -3,7 +3,7 @@
 ]]
 
 
-local box = require 'utils.box'
+local box = require 'fastrcnn.utils.box'
 local boxoverlap = box.boxoverlap
 
 ---------------------------------------------------------------------------------------------------------------------

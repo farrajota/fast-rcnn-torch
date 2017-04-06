@@ -3,7 +3,7 @@
 ]]
 
 
-local utils = require 'utils'
+local utils = require 'fastrcnn.utils'
 
 if not fastrcnn then fastrcnn = {} end
 
