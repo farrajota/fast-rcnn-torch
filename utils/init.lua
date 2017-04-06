@@ -72,9 +72,6 @@ return {
     -- load matlab files
     load = require 'fastrcnn.utils.load',
 
-    -- visualize object detections with a window
-    --visualize_detections = require 'fastrcnn.utils.visualize',
-
     -- other functions
     logical2ind = logical2ind,
 

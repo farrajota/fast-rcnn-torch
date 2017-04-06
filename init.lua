@@ -29,6 +29,6 @@ require 'fastrcnn.Transform'
 fastrcnn.train = require 'fastrcnn.train'
 fastrcnn.test = require 'fastrcnn.test'
 fastrcnn.utils = require 'fastrcnn.utils'
-fastrcnn.visualize_detections = require 'fastrcnn.utils.visualize'
+fastrcnn.visualize_detections = require 'fastrcnn.visualize'
 
 return fastrcnn
