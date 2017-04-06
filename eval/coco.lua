@@ -19,7 +19,7 @@ local function coco_eval_python(annFile, res)
                     'cocoEval.evaluate();' ..
                     'cocoEval.accumulate();' ..
                     'cocoEval.summarize();' ..
-                    'stats = cocoEval.stats;'
+                    'stats = cocoEval.stats;')
                     :format(annFile, res)
 
     os.execute(('python -c "%s"'):format(command))
