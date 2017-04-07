@@ -2,7 +2,8 @@
     Visualize detections using a GUI window (requires qlua/qt).
 ]]
 
-local nms = require 'fastrcnn.utils.nms'
+--local nms = require 'fastrcnn.utils.nms'
+local nms = paths.dofile('utils/nms.lua')
 
 ---------------------------------------------------------------------------------------------------------------------
 

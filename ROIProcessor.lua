@@ -3,8 +3,10 @@
 ]]
 
 
-local box = require 'fastrcnn.utils.box'
-local boxoverlap = box.boxoverlap
+--local box = require 'fastrcnn.utils.box'
+--local boxoverlap = box.boxoverlap
+local utils = paths.dofile('/home/mf/Toolkits/Codigo/git/fastrcnn/utils/init.lua')
+local boxoverlap = utils.box.boxoverlap
 
 if not fastrcnn then fastrcnn = {} end
 
@@ -13,9 +15,9 @@ if not fastrcnn then fastrcnn = {} end
 local ROIProcessor = torch.class('fastrcnn.ROIProcessor')
 
 function ROIProcessor:__init(dataLoadFn, proposals, opt)
-    assert(dataLoadFn)
-    assert(proposals)
-    assert(opt)
+    assert(dataLoadFn, 'Invalid input: dataLoadFn')
+    assert(proposals, 'Invalid input: proposals')
+    assert(opt, 'Invalid input: opt')
 
     self.dataLoadFn = dataLoadFn
     self.roidb = proposals
@@ -46,7 +48,7 @@ end
 function ROIProcessor:getProposals(idx)
 
     -- check if there are any roi boxes for the current image
-    if self.dataLoadFn.getGTBoxes(idx) ~= nil then
+    if self.dataLoadFn.getGTBoxes(idx) == nil then
         return nil
     end
 

@@ -5,8 +5,10 @@
 
 local tds = require 'tds'
 local xlua = require 'xlua'
-local eval = require 'fastrcnn.eval'
-local utils = require 'fastrcnn.utils'
+--local eval = require 'fastrcnn.eval'
+--local utils = require 'fastrcnn.utils'
+local eval = paths.dofile('/home/mf/Toolkits/Codigo/git/fastrcnn/eval/init.lua')
+local utils = paths.dofile('/home/mf/Toolkits/Codigo/git/fastrcnn/utils/init.lua')
 
 if not fastrcnn then fastrcnn = {} end
 

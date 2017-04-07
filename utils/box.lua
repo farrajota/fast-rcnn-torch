@@ -151,7 +151,7 @@ return {
 
     keep_top_k = keep_top_k,
 
-    convertTo = convertTo,
-    convertToMulti = convertToMulti,
+    convertTo = convertToMulti,
+    --convertToMulti = convertToMulti,
     convertFrom = convertFrom,
 }

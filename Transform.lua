@@ -19,7 +19,7 @@ function Transform:__init(modelParameters, opt, mode)
     -- model
     self.colourspace = modelParameters.colourspace
     self.pixel_scale = modelParameters.pixel_scale
-    self.meanstd = modelParameters.meanstd
+    self.meanstd = modelParameters.meanstd or {mean = modelParameters.mean, std = modelParameters.std}
 
     -- frcnn options
     self.hflip_prob = (mode=='train' and opt.frcnn_hflip) or 0

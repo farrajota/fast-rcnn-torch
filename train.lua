@@ -27,15 +27,17 @@
 --]]
 
 
-local function train(dataLoadTable, rois, model, modelParameters, opts)
+--local function train(dataLoadTable, rois, model, modelParameters, opts)
+local function train(data_gen, rois, model, modelParameters, opts)
 
-    assert(dataLoadTable)
-    assert(rois)
-    assert(model)
-    assert(modelParameters)
+    assert(data_gen, 'Invalid input: dataLoadTable')
+    assert(rois, 'Invalid input: rois')
+    assert(model, 'Invalid input: model')
+    assert(modelParameters, 'Invalid input: modelParameters')
 
     local tnt = require 'torchnet'
-    local utils = require 'fastrcnn.utils'
+    --local utils = require 'fastrcnn.utils'
+    local utils = paths.dofile('/home/mf/Toolkits/Codigo/git/fastrcnn/utils/init.lua')
     local modelStorageFn = utils.model.storeModel
 
 
@@ -44,6 +46,7 @@ local function train(dataLoadTable, rois, model, modelParameters, opts)
     --------------------------------------------------------------------------------
 
     local configs = require 'fastrcnn.configs'
+    local dataLoadTable = data_gen()
     local opt, modelOut, criterion, optimStateFn, nEpochs = configs(model, dataLoadTable, rois, modelParameters, opts or {})
     local lopt = opt
 
@@ -73,13 +76,17 @@ local function train(dataLoadTable, rois, model, modelParameters, opts)
              require 'torch'
              require 'torchnet'
              opt = lopt
-             require 'fastrcnn.BatchROISampler'
+             --require 'fastrcnn.BatchROISampler'
+             paths.dofile('/home/mf/Toolkits/Codigo/git/fastrcnn/init.lua')
+             --paths.dofile('/home/mf/Toolkits/Codigo/git/fastrcnn/BatchROISampler.lua')
+             --paths.dofile('/home/mf/Toolkits/Codigo/git/fastrcnn/ROIProcessor.lua')
              torch.manualSeed(threadid+opt.manualSeed)
           end,
           closure = function()
-
+            
               -- data loader/generator
-              local batchprovider = fastrcnn.BatchROISampler(dataLoadTable[mode], rois[mode], modelParameters, opt, mode)
+              local data_loader = data_gen()
+              local batchprovider = fastrcnn.BatchROISampler(data_loader[mode], rois[mode], modelParameters, opt, mode)
 
               -- number of iterations per epoch
               local nIters = (mode=='train' and nItersTrain) or nItersTest

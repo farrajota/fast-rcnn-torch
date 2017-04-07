@@ -9,7 +9,8 @@ void bbox_vote(THFloatTensor *res, THFloatTensor *nms_boxes, THFloatTensor *scor
 void NMS(THFloatTensor *keep, THFloatTensor *scored_boxes, float overlap);
 ]]
 
-local ok, C = pcall(ffi.load, package.searchpath('libfastrcnn', package.cpath))
+--local ok, C = pcall(ffi.load, package.searchpath('libfastrcnn', package.cpath))
+local ok, C = pcall(ffi.load, '/home/mf/Toolkits/Codigo/git/fastrcnn/lib/libnms.so')
 assert(ok, 'Installation went wrong when compiling the C code.')
 
 ------------------------------------------------------------------------------------------------------------
