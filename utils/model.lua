@@ -153,7 +153,7 @@ end
 
 local function DisableFeatureBackprop(features, maxLayer)
     local noBackpropModules = nn.Sequential()
-    for i = 1,maxLayer do
+    for i=1, maxLayer do
         noBackpropModules:add(features.modules[1])
         features:remove(1)
     end

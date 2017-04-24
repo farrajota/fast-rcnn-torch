@@ -22,8 +22,13 @@ local function test(dataLoadTable, rois, model, modelParameters, opt)
         roi_boxes = rois
     end
 
+    -- add model params to opt
+    if not opt.model_param then
+        opt.model_param = modelParameters
+    end
+
     -- test class
-    local Tester = fastrcnn.Tester(dataLoadTable, roi_boxes, model, modelParameters, opt, evaluation_mode)
+    local Tester = fastrcnn.Tester(dataLoadTable(), roi_boxes, model, modelParameters, opt, evaluation_mode)
 
     -- compute the mAP score
     local mAP_score = Tester:test()

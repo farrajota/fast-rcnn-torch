@@ -45,7 +45,8 @@ local function train(data_gen, rois, model, modelParameters, opts)
     -- Load configs (data, model, criterion, optimState)
     --------------------------------------------------------------------------------
 
-    local configs = require 'fastrcnn.configs'
+    local configs = paths.dofile('/home/mf/Toolkits/Codigo/git/fastrcnn/configs.lua')
+    --local configs = require 'fastrcnn.configs'
     local dataLoadTable = data_gen()
     local opt, modelOut, criterion, optimStateFn, nEpochs = configs(model, dataLoadTable, rois, modelParameters, opts or {})
     local lopt = opt
@@ -83,7 +84,7 @@ local function train(data_gen, rois, model, modelParameters, opts)
              torch.manualSeed(threadid+opt.manualSeed)
           end,
           closure = function()
-            
+
               -- data loader/generator
               local data_loader = data_gen()
               local batchprovider = fastrcnn.BatchROISampler(data_loader[mode], rois[mode], modelParameters, opt, mode)
@@ -114,7 +115,7 @@ local function train(data_gen, rois, model, modelParameters, opts)
        train_err = tnt.AverageValueMeter(),
        train_cls_err = tnt.AverageValueMeter(),
        train_bbox_err = tnt.AverageValueMeter(),
-       train_clerr = tnt.ClassErrorMeter{topk = {1,5},accuracy=true},
+       train_clerr = tnt.ClassErrorMeter{topk = {1,math.min(#classes, 5)},accuracy=true},
 
        test_conf = tnt.ConfusionMeter{k = #classes},
        test_err = tnt.AverageValueMeter(),
@@ -186,11 +187,12 @@ local function train(data_gen, rois, model, modelParameters, opts)
                 xlua.progress(state.t+1, nItersTrain)
             else
                 print(('epoch[%d/%d][%d/%d][batch=%d] -  loss: (classification = %2.4f, ' ..
-                       ' bbox = %2.4f);   accu: (top-1: %2.2f; top-5: %2.2f);   lr = %.0e')
+                       ' bbox = %2.4f);   accu: (top-1: %2.2f; top-%d: %2.2f);   lr = %.0e')
                        :format( state.epoch+1, state.maxepoch, state.t+1, nItersTrain,
                        state.sample.target[1]:size(1), meters.train_cls_err:value(),
                        meters.train_bbox_err:value(), meters.train_clerr:value{k = 1},
-                       meters.train_clerr:value{k = 5}, state.config.learningRate))
+                       math.min(#classes, 5), meters.train_clerr:value{k = math.min(#classes, 5)},
+                       state.config.learningRate))
             end
         else
             xlua.progress(state.t+1, nItersTest)
