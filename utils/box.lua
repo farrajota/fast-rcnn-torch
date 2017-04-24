@@ -3,6 +3,12 @@
 ]]
 
 
+--local utils_table = require 'fastrcnn.utils.table'
+local utils_table = paths.dofile('/home/mf/Toolkits/Codigo/git/fastrcnn/utils/table.lua')
+
+
+------------------------------------------------------------------------------------------------------------
+
 -- source: https://github.com/fmassa/object-detection.torch/blob/master/utils.lua#L97
 local function boxoverlap(a,b)
   local b = b.xmin and {b.xmin,b.ymin,b.xmax,b.ymax} or b
@@ -36,7 +42,7 @@ end
 
 -- source: https://github.com/fmassa/object-detection.torch/blob/master/utils.lua#L34
 local function keep_top_k(boxes,top_k)
-    local X = joinTable(boxes,1)
+    local X = utils_table.joinTable(boxes,1)
     if X:numel() == 0 then
         return nil
     end
@@ -84,6 +90,7 @@ local function convertTo(out, bbox, tbox)
       local ytc = (tbox[{{},2}] + tbox[{{},4}]) * 0.5
       local wt = tbox[{{},3}] - tbox[{{},1}]
       local ht = tbox[{{},4}] - tbox[{{},2}]
+
       out[{{},1}] = (xtc - xc):cdiv(w)
       out[{{},2}] = (ytc - yc):cdiv(h)
       out[{{},3}] = wt:cdiv(w):log()

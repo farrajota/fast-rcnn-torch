@@ -23,6 +23,7 @@ function ROIProcessor:__init(dataLoadFn, proposals, opt)
     self.roidb = proposals
     self.classes = dataLoadFn.classLabel
     self.nFiles = dataLoadFn.nfiles
+    self.augment_offset = opt.frcnn_roi_augment_offset
 end
 
 ------------------------------------------------------------------------------------------------------------
@@ -45,18 +46,55 @@ end
 
 ------------------------------------------------------------------------------------------------------------
 
+function ROIProcessor:augmentRoiProposals(boxes)
+    -- augment number of region proposals by using coordinate offset
+    local new_boxes = {}
+    if self.augment_offset > 0 then
+        --print('Augmenting the number of roi proposal regions by jittering the available rois coordinates...')
+        --local tic = torch.tic()
+        local offset = torch.range(0.1, self.augment_offset, 0.1):totable()
+        offset = offset[#offset]
+        local roi_data = boxes:clone()
+        for ix=-offset, offset, 0.1 do
+        for iy=-offset, offset, 0.1 do
+            if not (ix == iy and math.abs(ix) <= 0.0001) then
+                local roi_data_offset = boxes:clone()
+
+                local offx = (roi_data_offset:select(2,3) - roi_data_offset:select(2,1)):mul(ix)
+                local offy = (roi_data_offset:select(2,4) - roi_data_offset:select(2,2)):mul(iy)
+
+                roi_data_offset:select(2,1):add(offx)
+                roi_data_offset:select(2,2):add(offy)
+                roi_data_offset:select(2,3):add(offx)
+                roi_data_offset:select(2,4):add(offy)
+                roi_data = roi_data:cat(roi_data_offset, 1)
+            end
+        end
+      end
+      --roi_data[roi_data:lt(1)] = 1
+      new_boxes = roi_data
+        --print('Done. Elapsed time: ' .. torch.toc(tic))
+    else
+        new_boxes = boxes
+    end
+
+    return new_boxes
+end
+
+------------------------------------------------------------------------------------------------------------
+
 function ROIProcessor:getProposals(idx)
 
+    -- fetch object boxes, classes
+    local gt_boxes, gt_classes = self.dataLoadFn.getGTBoxes(idx)
+
     -- check if there are any roi boxes for the current image
-    if self.dataLoadFn.getGTBoxes(idx) == nil then
+    if gt_boxes == nil then
         return nil
     end
 
     -- fetch roi proposal boxes
     local boxes = self:getROIBoxes(idx)
-
-    -- fetch object boxes, classes
-    local gt_boxes, gt_classes = self:getGTBoxes(idx)
 
     local all_boxes
     if boxes:numel() > 0 and gt_boxes:numel() > 0 then
@@ -82,14 +120,17 @@ function ROIProcessor:getProposals(idx)
         rec.gt = torch.ByteTensor(0)
     end
 
+    -- augment the number of roi proposals
+    all_boxes = self:augmentRoiProposals(all_boxes)
+
     -- box overlap
-    rec.overlap_class = torch.FloatTensor(num_boxes+num_gt_boxes, #self.classes):fill(0)
-    rec.overlap = torch.FloatTensor(num_boxes+num_gt_boxes,num_gt_boxes):fill(0)
+    rec.overlap_class = torch.FloatTensor(all_boxes:size(1), #self.classes):fill(0)
+    rec.overlap = torch.FloatTensor(all_boxes:size(1), num_gt_boxes):fill(0)
     for idx=1,num_gt_boxes do
-        local o = boxoverlap(all_boxes,gt_boxes[idx])
-        local tmp = rec.overlap_class[{{},gt_classes[idx]}] -- pointer copy
+        local o = boxoverlap(all_boxes, gt_boxes[idx])
+        local tmp = rec.overlap_class[{{}, gt_classes[idx]}] -- pointer copy
         tmp[tmp:lt(o)] = o[tmp:lt(o)]
-        rec.overlap[{{},idx}] = boxoverlap(all_boxes,gt_boxes[idx])
+        rec.overlap[{{}, idx}] = boxoverlap(all_boxes, gt_boxes[idx])
     end
 
     -- correspondence
@@ -99,13 +140,17 @@ function ROIProcessor:getProposals(idx)
         rec.correspondance  = torch.squeeze(rec.correspondance,2)
         rec.correspondance[rec.overlap:eq(0)] = 0
     else
-        rec.overlap = torch.FloatTensor(num_boxes+num_gt_boxes):fill(0)
-        rec.correspondance = torch.LongTensor(num_boxes+num_gt_boxes):fill(0)
+        --rec.overlap = torch.FloatTensor(num_boxes+num_gt_boxes):fill(0)
+        --rec.correspondance = torch.LongTensor(num_boxes+num_gt_boxes):fill(0)
+        rec.overlap = torch.FloatTensor(all_boxes:size(1)):fill(0)
+        rec.correspondance = torch.LongTensor(all_boxes:size(1)):fill(0)
     end
 
     -- set class label
-    rec.label = torch.IntTensor(num_boxes+num_gt_boxes):fill(0)
-    for idx=1,(num_boxes+num_gt_boxes) do
+    --rec.label = torch.IntTensor(num_boxes+num_gt_boxes):fill(0)
+    --for idx=1,(num_boxes+num_gt_boxes) do
+    rec.label = torch.IntTensor(all_boxes:size(1)):fill(0)
+    for idx=1, all_boxes:size(1) do
         local corr = rec.correspondance[idx]
         if corr > 0 then
             rec.label[idx] = gt_classes[corr]
@@ -114,9 +159,9 @@ function ROIProcessor:getProposals(idx)
 
     rec.boxes = all_boxes
     if num_gt_boxes > 0 and num_boxes > 0 then
-        rec.class = torch.cat(torch.CharTensor(gt_classes), torch.CharTensor(num_boxes):fill(0))
+        rec.class = torch.cat(torch.CharTensor(gt_classes), torch.CharTensor(all_boxes:size(1)-1):fill(0))
     elseif num_boxes > 0 then
-        rec.class = torch.CharTensor(num_boxes):fill(0)
+        rec.class = torch.CharTensor(all_boxes:size(1)-1):fill(0)
     elseif num_gt_boxes > 0 then
         rec.class = torch.CharTensor(gt_classes)
     else
@@ -124,7 +169,7 @@ function ROIProcessor:getProposals(idx)
     end
 
     function rec:size()
-       return (num_boxes+num_gt_boxes)
+       return all_boxes:size(1)
     end
 
     return rec

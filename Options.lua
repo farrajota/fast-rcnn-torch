@@ -31,7 +31,7 @@ function Options:parse(opts)
     opt.frcnn_bg_thresh_hi, opt.frcnn_bg_thresh_lo, opt.frcnn_bbox_thresh,
     opt.frcnn_test_scales, opt.frcnn_test_max_size, opt.frcnn_test_nms_thresh,
     opt.frcnn_test_bbox_voting_nms_thresh, opt.frcnn_test_mode,
-    opt.frcnn_hflip = xlua.unpack(
+    opt.frcnn_hflip, opt.frcnn_roi_augment_offset = xlua.unpack(
     {options},
     'Parameters',
     'Fast-RCNN options',
@@ -130,7 +130,9 @@ function Options:parse(opts)
     -- FRCNN data augment options
     -------------------------------------------------------------------------------
     {arg='frcnn_hflip', type='number', default=0.5,
-     help='Probability to flip the image horizontally [0,1].'}
+     help='Probability to flip the image horizontally [0,1].'},
+    {arg='frcnn_roi_augment_offset', type='number', default=0,
+     help='Increase the number of region proposals used for train between a range of coordinates defined by this value [0,1].'}
     )
 
     if opt.GPU >= 1 then

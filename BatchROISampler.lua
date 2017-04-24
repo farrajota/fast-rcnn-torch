@@ -5,6 +5,7 @@
 ]]
 
 
+require 'xlua'
 --local utils = require 'fastrcnn.utils'
 local utils = paths.dofile('/home/mf/Toolkits/Codigo/git/fastrcnn/utils/init.lua')
 
@@ -96,8 +97,17 @@ end
 function BatchSampler:setupData(nSamples)
     local regression_values = {}
     local size = nSamples or 1000
-    for i = 1, size do
-        local v = self:setupOne(i)[1]
+    for i=1, size do
+        xlua.progress(i, size)
+        local data = {}
+        while not next(data) do
+            local idx = torch.random(1, self.dataset.nFiles)
+            local sample = self:setupOne(idx)
+            if sample then
+                table.insert(data, sample[1])
+            end
+        end
+        local v = data[1]
         if v then
             table.insert(regression_values, utils.box.convertTo(v.rois, v.gtboxes))
         end
@@ -224,6 +234,8 @@ end
 
 ------------------------------------------------------------------------------------------------------------
 
+local max_w, max_h = 0, 0
+
 function BatchSampler:getBatch()
 
     -- Load data samples
@@ -241,11 +253,16 @@ function BatchSampler:getBatch()
     end
 
     -- image
-    local img = torch.FloatTensor(self.imgs_per_batch,3, self.max_size, self.max_size):fill(0)
+    for i=1, #batchData do
+        max_w = math.min(math.max(max_w, batchData[i][1]:size(3)), self.max_size)
+        max_h = math.min(math.max(max_h, batchData[i][1]:size(2)), self.max_size)
+    end
+    local img = torch.FloatTensor(self.imgs_per_batch,3, max_h, max_w):fill(0)
     for i=1, self.imgs_per_batch do
         local im = batchData[i][1]
         img[{i, {}, {1,im:size(2)}, {1,im:size(3)}}]:copy(im)
     end
+    --
 
     -- concatenate
     local boxes, labels, bbox_targets
