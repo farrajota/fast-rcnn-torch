@@ -10,14 +10,15 @@
 - Multi-GPU support;
 - Common data augmentation techniques (color jitter, scaling, etc.);
 - Pascal VOC / MS COCO mAP evaluation schemes.
+- Proposals data augmentation during train
 
 
 ## Package installation
 
 ### Requirements
 
-- [Torch7](http://torch.ch/docs/getting-started.html)
 - NVIDIA GPU with compute capability 3.5+ (2GB+ ram)
+- [Torch7](http://torch.ch/docs/getting-started.html)
 - tds
 - matio
 - cudnn
