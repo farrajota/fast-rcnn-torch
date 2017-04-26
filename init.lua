@@ -32,7 +32,7 @@ fastrcnn.utils = require 'fastrcnn.utils'
 fastrcnn.visualize_detections = require 'fastrcnn.visualize'
 ]]
 
-paths.dofile('modules/init.lua')         -- bbox modules for train/test
+paths.dofile('modules/init.lua')    -- bbox modules for train/test
 paths.dofile('BatchROISampler.lua') -- data loader/generator
 paths.dofile('ImageDetector.lua')   -- single image detector/tester
 paths.dofile('Tester.lua')          -- dataset tester

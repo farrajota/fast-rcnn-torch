@@ -59,18 +59,23 @@ end
 return {
     -- model utility functions
     model = paths.dofile('model.lua'),
+    --model = require 'fastrcnn.utils.model',
 
     -- non-maximum suppression
     nms = paths.dofile('nms.lua'),
+    --nms = require 'fastrcnn.utils.nms',
 
     -- bounding box overlap
     box = paths.dofile('box.lua'),
+    --box = require 'fastrcnn.utils.box',
 
     -- table functions
     table = paths.dofile('table.lua'),
+    --table = require 'fastrcnn.utils.table',
 
     -- load matlab files
     load = paths.dofile('load.lua'),
+    --load = require 'fastrcnn.utils.load',
 
     -- other functions
     logical2ind = logical2ind,

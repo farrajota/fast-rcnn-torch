@@ -49,7 +49,7 @@ local function visualize_detections(im, boxes, scores, visualization_thresh, nms
     boxes_thresh = torch.FloatTensor(boxes_thresh)
 
     local scored_boxes = torch.cat(boxes_thresh:float(), max_score:float(), 2)
-    local keep = nms.dense(scored_boxes, 0.3)
+    local keep = nms.dense(scored_boxes, nms_thresh or 0.3)
 
     boxes_thresh = boxes_thresh:index(1,keep)
     max_score = max_score:index(1,keep):squeeze()

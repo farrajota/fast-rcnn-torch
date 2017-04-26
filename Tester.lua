@@ -65,7 +65,7 @@ end
 ------------------------------------------------------------------------------------------------------------
 
 function Tester:getImage(idx)
-    return self.dataLoadFn.getFilename(idx)
+    return image.load(self.dataLoadFn.getFilename(idx),3,'float')
 end
 
 ------------------------------------------------------------------------------------------------------------
@@ -113,24 +113,6 @@ function Tester:testOne(ifile)
 
         table.insert(all_output, output)
         table.insert(all_bbox_pred, bbox_pred)
-        --[[
-        for i = 2, self.num_iter do
-            -- have to copy to cuda because of torch/cutorch LongTensor differences
-            self.boxselect = self.boxselect or nn.SelectBoxes():cuda()
-            local new_boxes = self.boxselect:forward{output:cuda(), bbox_pred:cuda()}:float()
-            output, bbox_pred = self.detec:detect(im, new_boxes, self.data_parallel_n, false)
-            table.insert(all_output, output)
-            table.insert(all_bbox_pred, bbox_pred)
-        end
-        --]]
-
-        --if opt.test_use_rbox_scores then
-        --    assert(#all_output > 1)
-        --    -- we use the scores from iter n+1 for the boxes at iter n
-        --    -- this means we lose one iteration worth of boxes
-        --    table.remove(all_output, 1)
-        --    table.remove(all_bbox_pred)
-        --end
 
         output = utils.table.joinTable(all_output, 1)
         bbox_pred = utils.table.joinTable(all_bbox_pred, 1)
@@ -192,14 +174,16 @@ function Tester:test()
     local raw_bbox_pred = tds.hash()
 
     local aboxes
- --   if paths.filep(self.cache_filename) then
- --       print('Load test cache from file: ' .. self.cache_filename)
- --       aboxes = torch.load(self.cache_filename)
- --   else
+    --self.cache_filename = '/home/mf/Toolkits/Codigo/git/fastrcnn-example/data/cache.t7'
+    --self.cache_filename = '/home/mf/Toolkits/Codigo/git/pedestrian_detector/data/exp/caltech/alexnet_vanilla_frcnn/cache.t7'
+    --if paths.filep(self.cache_filename) then
+        print('Load test cache from file: ' .. self.cache_filename)
+        aboxes = torch.load(self.cache_filename)
+    --else
 
 
 
-    if not self.progressbar then xlua.progress(0, self.nFiles) end
+    if self.progressbar then xlua.progress(0, self.nFiles) end
     for ifile = 1, self.nFiles do
         local img_boxes, raw_boxes = self:testOne(ifile)
         aboxes_t[ifile] = img_boxes
@@ -210,14 +194,14 @@ function Tester:test()
 
 
     aboxes_t = self:keepTopKPerImage(aboxes_t, 100) -- coco only accepts 100/image
-    local aboxes = self:transposeBoxes(aboxes_t)
+    aboxes = self:transposeBoxes(aboxes_t)
     aboxes_t = nil
 
     collectgarbage()
 
- --   print('Save test cache to file: ' .. self.cache_filename)
- --   torch.save(self.cache_filename, aboxes)
---    end
+    --print('Save test cache to file: ' .. self.cache_filename)
+    --torch.save(self.cache_filename, aboxes)
+    --end
 
     return self:computeAP(aboxes)
 end
@@ -226,7 +210,7 @@ end
 
 function Tester:keepTopKPerImage(aboxes_t, k)
     for j = 1,self.nFiles do
-        aboxes_t[j] = utils.keep_top_k(aboxes_t[j], k)
+        aboxes_t[j] = utils.box.keep_top_k(aboxes_t[j], k)
     end
     return aboxes_t
 end
@@ -244,39 +228,16 @@ function Tester:transposeBoxes(aboxes_t)
     return aboxes
 end
 
---[[
-function Tester:getBBoxLoaderFn()
-    local dataset = self.dataset
-    return {
-        size = dataset.filename:size(1),
-        getBoxes = function(idx)
-            local boxes = {}
-            local objectIDList = dataset.filenameList.objectIDList[idx]
-            for i=1, objectIDList:size(1) do
-                local id = objectIDList[i]
-                if id == 0 then
-                    break
-                end
-                local classID = dataset.object[id][2]
-                local bbox = dataset.bbox[dataset.object[id][3] ]
-                table.insert(boxes, {bbox:totable(), classID})
-            end
-            return boxes
-        end
-    }
-end
---]]
-
 ------------------------------------------------------------------------------------------------------------
 
 function Tester:computeAP(aboxes)
     if self.eval_mode == 'voc' then
         --return eval.pascal(self:getBBoxLoaderFn(), self.classes, aboxes)
-        return eval.pascal(self.dataLoadFn.getGTBoxes, self.nFiles, self.classes, aboxes)
+        eval.pascal(self.dataLoadFn.getGTBoxes, self.nFiles, self.classes, aboxes)
     else
         --return eval.coco(self:getBBoxLoaderFn(), self.classes, aboxes)
         --return testCoco.evaluate(self.dataset.dataset_name, aboxes_)
-        return eval.coco(self.dataLoadFn.getGTBoxes, self.nFiles, self.classes, aboxes)
+        eval.coco(self.dataLoadFn.getGTBoxes, self.nFiles, self.classes, aboxes)
     end
 end
 
