@@ -4,7 +4,8 @@
 
 
 require 'xlua'
-local coco_eval_python = require 'fastrcnn.eval.coco'
+--local coco_eval_python = require 'fastrcnn.eval.coco'
+local coco_eval_python = paths.dofile('coco.lua')
 
 ------------------------------------------------------------------------------------------------------------
 
@@ -60,6 +61,28 @@ local function evaluate(dataset_name, res)
     --local coco = Coco(annFile)
     --return coco:evaluate(boxt)
     return coco_eval_python(annFile, boxt)
+end
+
+local function evaluate2(BBoxLoaderFn, nfiles, classes, aboxes)
+    assert(BBoxLoaderFn)
+    assert(nfiles)
+    assert(classes)
+    assert(aboxes)
+
+     -- (2) Compute mAP of the selected boxes wrt the ground truth boxes from the dataset
+    print('==> Computing mean average precision')
+    print('==> [class name] | [average precision]')
+    local res = {}
+    for iclass=1, #classes do
+        local className = classes[iclass]
+        res[iclass] = VOCevaldet(BBoxLoaderFn, nfiles, aboxes[iclass], iclass)
+        print(('%s AP: %0.5f'):format(className, res[iclass]))
+    end
+    res = torch.Tensor(res)
+    local mAP = res:mean()
+    print('\n*****************')
+    print(('mean AP: %0.5f'):format(mAP))
+    print('*****************\n')
 end
 
 ------------------------------------------------------------------------------------------------------------

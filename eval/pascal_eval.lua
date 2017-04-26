@@ -3,8 +3,11 @@
 ]]
 
 
-local box = require 'fastrcnn.utils.box'
-local boxoverlap = box.boxoverlap
+--local box = require 'fastrcnn.utils.box'
+--local boxoverlap = box.boxoverlap
+local utils = paths.dofile('/home/mf/Toolkits/Codigo/git/fastrcnn/utils/init.lua')
+local boxoverlap = utils.box.boxoverlap
+
 
 ---------------------------------------------------------------------------------------------------------------------
 
@@ -48,11 +51,14 @@ local function VOCevaldet(BBoxLoaderFn, nFiles, scored_boxes, classID)
         local det = {}
 
         local boxes, labels = BBoxLoaderFn(ifile)
-        for ibb=1, #boxes do
-            if labels[ibb] == classID then
-                table.insert(bbox, boxes[ibb])
-                table.insert(det, 0)
-                count = count + 1
+        
+        if boxes ~= nil and labels ~=nil then
+            for ibb=1, boxes:size(1) do
+                if labels[ibb] == classID then
+                    table.insert(bbox, boxes[ibb]:totable())
+                    table.insert(det, 0)
+                    count = count + 1
+                end
             end
         end
 
@@ -63,7 +69,7 @@ local function VOCevaldet(BBoxLoaderFn, nFiles, scored_boxes, classID)
         for j=1, num do
             local bbox_pred = scored_boxes[ifile][j]
             num_pr = num_pr + 1
-            table.insert(energy,bbox_pred[5])
+            table.insert(energy, bbox_pred[5])
 
             if bbox:numel()>0 then
                 local o = boxoverlap(bbox,bbox_pred[{{1,4}}])
@@ -125,7 +131,6 @@ end
 ---------------------------------------------------------------------------------------------------------------------
 
 local function evaluate(BBoxLoaderFn, nfiles, classes, aboxes)
-
     assert(BBoxLoaderFn)
     assert(nfiles)
     assert(classes)
@@ -145,8 +150,6 @@ local function evaluate(BBoxLoaderFn, nfiles, classes, aboxes)
     print('\n*****************')
     print(('mean AP: %0.5f'):format(mAP))
     print('*****************\n')
-
-    return mAP
 end
 
 ----------------------------------------------------------------------------------------
