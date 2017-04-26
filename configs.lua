@@ -94,7 +94,8 @@ local function LoadConfigs(model, dataLoadTable, rois, modelParameters, opts)
         opt.bbox_meanstd = batchprovider:setupData(nSamples)
 
         print('Done. Elapsed time: ' .. torch.toc(tic))
-        print(opt.bbox_meanstd)
+        print('mean: ', opt.bbox_meanstd.mean)
+        print('std: ', opt.bbox_meanstd.std)
     end
 
 
@@ -154,6 +155,9 @@ local function LoadConfigs(model, dataLoadTable, rois, modelParameters, opts)
     -- Save options to experiment directory
     torch.save(paths.concat(opt.savedir, 'options.t7'), opt)
     torch.save(paths.concat(opt.savedir, 'model_parameters.t7'), modelParameters)
+
+    collectgarbage()
+    collectgarbage()
 
     return opt, modelOut, criterion, optimStateFn, nEpochs
 end
