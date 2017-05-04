@@ -234,7 +234,7 @@ end
 
 ------------------------------------------------------------------------------------------------------------
 
-local max_w, max_h = 0, 0
+local max_w, max_h = 0, 0  -- this will automatically grow as the image sizes increase (up to a limit ofc)
 
 function BatchSampler:getBatch()
 
