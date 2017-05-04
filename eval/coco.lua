@@ -3,9 +3,9 @@
 ]]
 
 
-local function coco_eval_python(annFile, res)
+local function coco_eval_python(annFile, resFile)
     assert(annFile)
-    assert(res)
+    assert(resFile)
 
     local command = ('import sys;' ..
                     'from pycocotools.coco import COCO;' ..
@@ -20,7 +20,7 @@ local function coco_eval_python(annFile, res)
                     'cocoEval.accumulate();' ..
                     'cocoEval.summarize();' ..
                     'stats = cocoEval.stats;')
-                    :format(annFile, res)
+                    :format(annFile, resFile)
 
     os.execute(('python -c "%s"'):format(command))
 end

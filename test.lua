@@ -4,7 +4,7 @@
 --]]
 
 
-local function test(dataLoadTable, rois, model, modelParameters, opt)
+local function test(dataLoadTable, rois, model, modelParameters, opt, annotation_file)
 
     assert(dataLoadTable)
     assert(rois)
@@ -28,11 +28,10 @@ local function test(dataLoadTable, rois, model, modelParameters, opt)
     end
 
     -- test class
-    local Tester = fastrcnn.Tester(dataLoadTable(), roi_boxes, model, modelParameters, opt, evaluation_mode)
+    local Tester = fastrcnn.Tester(dataLoadTable(), roi_boxes, model, modelParameters, opt, evaluation_mode, annotation_file)
 
     -- compute the mAP score
-    local mAP_score = Tester:test()
-    return mAP_score
+    Tester:test()
 end
 
 return test

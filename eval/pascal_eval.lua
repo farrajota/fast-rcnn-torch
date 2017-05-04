@@ -51,7 +51,7 @@ local function VOCevaldet(BBoxLoaderFn, nFiles, scored_boxes, classID)
         local det = {}
 
         local boxes, labels = BBoxLoaderFn(ifile)
-        
+
         if boxes ~= nil and labels ~=nil then
             for ibb=1, boxes:size(1) do
                 if labels[ibb] == classID then
@@ -130,11 +130,12 @@ end
 
 ---------------------------------------------------------------------------------------------------------------------
 
-local function evaluate(BBoxLoaderFn, nfiles, classes, aboxes)
-    assert(BBoxLoaderFn)
-    assert(nfiles)
-    assert(classes)
+local function evaluate(loader,  aboxes)
+    assert(loader)
     assert(aboxes)
+
+    local nfiles = loader.nfiles
+    local classes = loader.classLabel
 
      -- (2) Compute mAP of the selected boxes wrt the ground truth boxes from the dataset
     print('==> Computing mean average precision')
@@ -142,7 +143,7 @@ local function evaluate(BBoxLoaderFn, nfiles, classes, aboxes)
     local res = {}
     for iclass=1, #classes do
         local className = classes[iclass]
-        res[iclass] = VOCevaldet(BBoxLoaderFn, nfiles, aboxes[iclass], iclass)
+        res[iclass] = VOCevaldet(loader.getGTBoxes, nfiles, aboxes[iclass], iclass)
         print(('%s AP: %0.5f'):format(className, res[iclass]))
     end
     res = torch.Tensor(res)

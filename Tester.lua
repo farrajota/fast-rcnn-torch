@@ -16,7 +16,7 @@ if not fastrcnn then fastrcnn = {} end
 
 local Tester = torch.class('fastrcnn.Tester')
 
-function Tester:__init(dataLoadTable, roi_proposals, model, modelParameters, opt, eval_mode)
+function Tester:__init(dataLoadTable, roi_proposals, model, modelParameters, opt, eval_mode, annotation_file)
 
     assert(dataLoadTable)
     assert(roi_proposals)
@@ -27,6 +27,7 @@ function Tester:__init(dataLoadTable, roi_proposals, model, modelParameters, opt
     -- initializations
     self.eval_mode = eval_mode or 'voc'
     self.progressbar = opt.progressbar or false
+    self.annFile = annotation_file
     --opt.model_params = modelParameters
 
     self.dataLoadFn = dataLoadTable.test
@@ -177,8 +178,8 @@ function Tester:test()
     --self.cache_filename = '/home/mf/Toolkits/Codigo/git/fastrcnn-example/data/cache.t7'
     --self.cache_filename = '/home/mf/Toolkits/Codigo/git/pedestrian_detector/data/exp/caltech/alexnet_vanilla_frcnn/cache.t7'
     --if paths.filep(self.cache_filename) then
-        print('Load test cache from file: ' .. self.cache_filename)
-        aboxes = torch.load(self.cache_filename)
+    --   print('Load test cache from file: ' .. self.cache_filename)
+    --   aboxes = torch.load(self.cache_filename)
     --else
 
 
@@ -232,12 +233,16 @@ end
 
 function Tester:computeAP(aboxes)
     if self.eval_mode == 'voc' then
-        --return eval.pascal(self:getBBoxLoaderFn(), self.classes, aboxes)
-        eval.pascal(self.dataLoadFn.getGTBoxes, self.nFiles, self.classes, aboxes)
+        print('\n***************************************************')
+        print('***   Pascal VOC evaluation metric   **************')
+        print('***************************************************\n')
+        eval.pascal(self.dataLoadFn, aboxes)
     else
-        --return eval.coco(self:getBBoxLoaderFn(), self.classes, aboxes)
-        --return testCoco.evaluate(self.dataset.dataset_name, aboxes_)
-        eval.coco(self.dataLoadFn.getGTBoxes, self.nFiles, self.classes, aboxes)
+        assert(self.annFile, 'Annotation file missing. Must input a valid file in order to use the coco evaluation.')
+        print('\n*********************************************')
+        print('***   COCO evaluation metric   **************')
+        print('*********************************************\n')
+        eval.coco(self.dataLoadFn, aboxes, self.annFile)
     end
 end
 
