@@ -13,6 +13,7 @@
 ]]
 
 
+require 'xlua'
 local matio = require 'matio'
 local dir = require 'pl.dir'
 
@@ -86,14 +87,24 @@ end
 
 ------------------------------------------------------------------------------------------------------------
 
-local function LoadMatlabPath(path)
+local function LoadMatlabPath(path, ttype)
+--[[Load all files in a directory into a single table.]]
     assert(path)
+    local ttype = ttype or 'torch.FloatTensor'
     local filenames = dir.getallfiles(path)
     local roi_boxes = {}
-    for i=1, #filenames do
+    local size = #filenames
+    xlua.progress(0, size)
+    for i=1, size do
         local data = matio.load(filenames[i])
-        assert(data, 'File doesn\'t contain any bbox proposals data: ' .. filenames[i])
-        roi_boxes[i] = data
+        if not data then
+            print('File doesn\'t contain any bbox proposals: ' .. filenames[i])
+        end
+        roi_boxes[i] = data.boxes:type(ttype)
+
+        if i==size or i%1000==0 then
+            xlua.progress(i, size)
+        end
     end
     return roi_boxes
 end
@@ -103,6 +114,6 @@ end
 return {
     matlab = {
         single_file = LoadMatlabFiles,
-        multiple_files = LoadMatlabPath
+        load_dir = LoadMatlabPath
     }
 }
