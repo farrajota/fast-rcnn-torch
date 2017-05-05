@@ -234,13 +234,13 @@ end
 function Tester:computeAP(aboxes)
     if self.eval_mode == 'voc' then
         print('\n***************************************************')
-        print('***   Pascal VOC evaluation metric   **************')
+        print('***   Pascal VOC evaluation metric ')
         print('***************************************************\n')
         eval.pascal(self.dataLoadFn, aboxes)
     else
         assert(self.annFile, 'Annotation file missing. Must input a valid file in order to use the coco evaluation.')
         print('\n*********************************************')
-        print('***   COCO evaluation metric   **************')
+        print('***   COCO evaluation metric  ')
         print('*********************************************\n')
         eval.coco(self.dataLoadFn, aboxes, self.annFile)
     end
