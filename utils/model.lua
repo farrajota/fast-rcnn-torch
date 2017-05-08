@@ -219,7 +219,29 @@ end
 
 ------------------------------------------------------------------------------------------------------------
 
-local function store(model, modelParameters, optimState, epoch, opt, flag)
+local function copy_parameters_models(modelA, modelB)
+--[[ Copy parameters (bias/weights) from a network A to B. ]]
+    local paramsA = modelA:parameters()
+    local paramsB = modelB:parameters()
+    for i=1, #paramsA do
+        paramsB[i]:copy(paramsA[i])
+    end
+end
+
+------------------------------------------------------------------------------------------------------------
+
+local function snapshot_configs(model_fname, epoch, opt)
+    return {
+        bbox_meanstd = opt.bbox_meanstd,
+        epoch = epoch,
+        optimState = optimState,
+        model_name = model_fname
+    }
+end
+
+------------------------------------------------------------------------------------------------------------
+
+local function store(model, modelSave, modelParameters, optimState, epoch, opt, flag)
     local filename_model, filename_optimstate
     local info = 'This file contains the trained fast-rcnn network and its transformation ' ..
                  'parameters (pixel scale, colourspace, mean/std).'
@@ -232,9 +254,13 @@ local function store(model, modelParameters, optimState, epoch, opt, flag)
         filename_optimstate = paths.concat(opt.savedir,'optim.t7')
     end
 
+    -- copy parameters from a model to another
+    copy_parameters_models(model, modelSave)
+
     print('Saving model snapshot to: ' .. filename_model)
     torch.save(filename_optimstate, optimState)
-    torch.save(filename_model, {model:clearState(), modelParameters, info})
+    torch.save(filename_model, {modelSave, modelParameters, info})
+    torch.save(opt.curr_save_configs, snapshot_configs(filename_model, epoch, opt))
 
     -- make a symlink to the last trained model
     local filename_symlink = paths.concat(opt.savedir,'model_final.t7')
@@ -246,20 +272,20 @@ end
 
 ------------------------------------------------------------------------------------------------------------
 
-local function storeModel(model, modelParameters, optimState, epoch, maxepoch, opt)
+local function storeModel(model, modelSave, modelParameters, optimState, epoch, maxepoch, opt)
     -- store model snapshot
     if opt.snapshot > 0 then
         if epoch%opt.snapshot == 0 or epoch == maxepoch then
-            store(model, modelParameters, optimState, epoch, opt, true)
+            store(model, modelSave, modelParameters, optimState, epoch, opt, true)
         end
     elseif opt.snapshot < 0 then
         if epoch%math.abs(opt.snapshot) == 0 or epoch == maxepoch then
-            store(model, modelParameters, optimState, epoch, opt, false)
+            store(model, modelSave, modelParameters, optimState, epoch, opt, false)
         end
     else
         -- save only at the last epoch
         if epoch == maxepoch then
-            store(model, modelParameters, optimState, epoch, opt, false)
+            store(model, modelSave, modelParameters, optimState, epoch, opt, false)
         end
     end
 end

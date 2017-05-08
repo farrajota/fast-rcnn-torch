@@ -48,7 +48,7 @@ local function train(data_gen, rois, model, modelParameters, opts)
     local configs = paths.dofile('/home/mf/Toolkits/Codigo/git/fastrcnn/configs.lua')
     --local configs = require 'fastrcnn.configs'
     local dataLoadTable = data_gen()
-    local opt, modelOut, criterion, optimStateFn, nEpochs = configs(model, dataLoadTable, rois, modelParameters, opts or {})
+    local opt, modelOut, modelSave, criterion, optimStateFn, nEpochs = configs(model, dataLoadTable, rois, modelParameters, opts or {})
     local lopt = opt
 
     print('\n==========================')
@@ -187,11 +187,11 @@ local function train(data_gen, rois, model, modelParameters, opts)
                 xlua.progress(state.t+1, nItersTrain)
             else
                 print(('epoch[%d/%d][%d/%d][batch=%d] -  loss: (classification = %2.4f, ' ..
-                       ' bbox = %2.4f);   accu: (top-1: %2.2f; top-%d: %2.2f);   lr = %.0e')
+                       ' bbox = %2.4f);   accu: (top-1: %2.2f; top-5: %2.2f);   lr = %.0e')
                        :format( state.epoch+1, state.maxepoch, state.t+1, nItersTrain,
                        state.sample.target[1]:size(1), meters.train_cls_err:value(),
                        meters.train_bbox_err:value(), meters.train_clerr:value{k = 1},
-                       math.min(#classes, 5), meters.train_clerr:value{k = math.min(#classes, 5)},
+                       meters.train_clerr:value{k = math.min(#classes, 5)},
                        state.config.learningRate))
             end
         else
@@ -248,7 +248,8 @@ local function train(data_gen, rois, model, modelParameters, opts)
             meters:reset()
 
             -- store model
-            modelStorageFn(state.network.modules[1], modelParameters, state.config, state.epoch, state.maxepoch, opt)
+            --modelStorageFn(state.network.modules[1], modelParameters, state.config, state.epoch, state.maxepoch, opt)
+            modelStorageFn(modelOut.modules[1], modelSave, modelParameters, state.config, state.epoch, state.maxepoch, opt)
             state.t = 0
         end
     end

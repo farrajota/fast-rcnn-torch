@@ -3,6 +3,42 @@
 ]]
 
 
+local function convert_model_backend(model, opt, is_gpu)
+    assert(model)
+    assert(opt)
+    assert(is_gpu ~= nil)
+
+    if opt.GPU >= 1 and is_gpu then
+        print('Running on GPU: num_gpus = [' .. opt.nGPU .. ']')
+        require 'cutorch'
+        require 'cunn'
+        opt.data_type = 'torch.CudaTensor'
+        model:cuda()
+
+        -- require cudnn if available
+        if pcall(require, 'cudnn') then
+            cudnn.convert(model, cudnn):cuda()
+            cudnn.benchmark = true
+            if opt.cudnn_deterministic then
+                model:apply(function(m) if m.setMode then m:setMode(1,1,1) end end)
+            end
+            print('Network has', #model:findModules'cudnn.SpatialConvolution', 'cudnn convolutions')
+        end
+    else
+        print('Running on CPU')
+        opt.data_type = 'torch.FloatTensor'
+
+        if pcall(require, 'cudnn') then
+            cudnn.convert(model, nn)
+        end
+
+        model:float()
+    end
+    return model
+end
+
+------------------------------------------------------------------------------------------------------------
+
 local function LoadConfigs(model, dataLoadTable, rois, modelParameters, opts)
 
     torch.setdefaulttensortype('torch.FloatTensor')
@@ -12,6 +48,7 @@ local function LoadConfigs(model, dataLoadTable, rois, modelParameters, opts)
     -------------------------------------------------------------------------------
 
     local opt, optimState, optimStateFn, nEpochs
+
 
     local Options = fastrcnn.Options()
     opt = Options:parse(opts or {})
@@ -81,6 +118,45 @@ local function LoadConfigs(model, dataLoadTable, rois, modelParameters, opts)
 
 
     -------------------------------------------------------------------------------
+    -- Setup criterion
+    -------------------------------------------------------------------------------
+
+    local criterion = nn.ParallelCriterion()
+        :add(nn.CrossEntropyCriterion(), 1)
+        :add(nn.BBoxRegressionCriterion(), 1)
+
+
+    -------------------------------------------------------------------------------
+    -- Continue from snapshot
+    -------------------------------------------------------------------------------
+
+    opt.curr_save_configs = paths.concat(opt.savedir, 'curr_save_configs.t7')
+    if opt.continue then
+        if paths.filep(opt.curr_save_configs) then
+
+            -- load snapshot configs
+            local confs = torch.load(opt.curr_save_configs)
+            opt.bbox_meanstd = confs.bbox_meanstd
+            opt.epochStart = confs.epoch + 1
+
+            -- load model from disk
+            print('Loading model: ' .. paths.concat(opt.savedir, confs.model_name))
+            local modelOut = torch.load(paths.concat(opt.savedir, confs.model_name))[1]
+
+            modelOut = convert_model_backend(modelOut, opt, true)
+            criterion:type(opt.data_type)
+
+            -- create copy of the model
+            local modelSave = modelOut:clone()
+            modelSave = convert_model_backend(modelSave, opt, false)
+
+
+            return opt, modelOut, modelSave, criterion, optimStateFn, nEpochs
+        end
+    end
+
+
+    -------------------------------------------------------------------------------
     -- Preprocess rois
     -------------------------------------------------------------------------------
 
@@ -100,44 +176,10 @@ local function LoadConfigs(model, dataLoadTable, rois, modelParameters, opts)
 
 
     -------------------------------------------------------------------------------
-    -- Setup criterion
-    -------------------------------------------------------------------------------
-
-    local criterion = nn.ParallelCriterion()
-        :add(nn.CrossEntropyCriterion(), 1)
-        :add(nn.BBoxRegressionCriterion(), 1)
-    local modelOut = nn.Sequential()
-
-
-    -------------------------------------------------------------------------------
     -- Setup model
     -------------------------------------------------------------------------------
 
-    if opt.GPU >= 1 then
-        print('Running on GPU: num_gpus = [' .. opt.nGPU .. ']')
-        require 'cutorch'
-        require 'cunn'
-        opt.data_type = 'torch.CudaTensor'
-        model:cuda()
-        criterion:cuda()
-
-        -- require cudnn if available
-        if pcall(require, 'cudnn') then
-            cudnn.convert(model, cudnn):cuda()
-            cudnn.benchmark = true
-            if opt.cudnn_deterministic then
-                model:apply(function(m) if m.setMode then m:setMode(1,1,1) end end)
-            end
-            print('Network has', #model:findModules'cudnn.SpatialConvolution', 'cudnn convolutions')
-        end
-    else
-        print('Running on CPU')
-        opt.data_type = 'torch.FloatTensor'
-        model:float()
-        criterion:float()
-    end
-
-    local function cast(x) return x:type(opt.data_type) end
+    local modelOut = nn.Sequential()
 
     -- add mean/std norm
     model:add(nn.ParallelTable()
@@ -145,7 +187,16 @@ local function LoadConfigs(model, dataLoadTable, rois, modelParameters, opts)
          :add(nn.BBoxNorm(opt.bbox_meanstd.mean, opt.bbox_meanstd.std)))
     modelOut:add(model)
 
-    cast(modelOut)
+    -- convert model backend/type
+    modelOut = convert_model_backend(modelOut, opt, true)
+    criterion:type(opt.data_type)
+
+    -- create a secondary model for storing.
+    -- This model will have the same parameters as the original
+    -- but it will not have allocated grad/output buffers, avoiding out-of-memory
+    -- issues when saving models in GPU when saving a network to disk.
+    local modelSave = modelOut.modules[1]:clone()
+    modelSave = convert_model_backend(modelSave, opt, false)
 
     if opt.verbose then
         print('Network:')
@@ -159,7 +210,7 @@ local function LoadConfigs(model, dataLoadTable, rois, modelParameters, opts)
     collectgarbage()
     collectgarbage()
 
-    return opt, modelOut, criterion, optimStateFn, nEpochs
+    return opt, modelOut, modelSave, criterion, optimStateFn, nEpochs
 end
 
 ---------------------------------------------------------------------------------------------------------------------

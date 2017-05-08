@@ -168,7 +168,6 @@ end
 ------------------------------------------------------------------------------------------------------------
 
 function BatchSampler:selectBBoxes(boxes, im_scale, im_size, do_flip)
-    local bg_no_overlap = self:selectBBoxesOne(boxes[-1], self.bg_num_each, im_scale, im_size, do_flip)
     local bg = self:selectBBoxesOne(boxes[0], self.bg_num_each, im_scale, im_size, do_flip)
     local fg = self:selectBBoxesOne(boxes[1], self.fg_num_each, im_scale, im_size, do_flip)
     local bg_rois, bg_gtboxes, bg_labels
@@ -177,6 +176,7 @@ function BatchSampler:selectBBoxes(boxes, im_scale, im_size, do_flip)
         bg_gtboxes = bg.gtboxes
         bg_labels = bg.labels
     else
+        local bg_no_overlap = self:selectBBoxesOne(boxes[-1], self.bg_num_each, im_scale, im_size, do_flip)
         local num_bg_samples = math.ceil(self.bg_num_each*self.bg_fraction)
         local num_oe_bg_samples = self.bg_num_each - num_bg_samples
         if num_bg_samples>0 and num_oe_bg_samples>0 then
@@ -245,6 +245,7 @@ function BatchSampler:getBatch()
         while not next(data) do
             local idx = torch.random(1, self.nFiles)
             if not imUsed[idx] then
+                --print('idx: ' .. idx)
                 data = self:getSample(idx)
                 imUsed[idx] = 1
             end
