@@ -244,7 +244,9 @@ end
 local function store(model, modelSave, modelParameters, optimState, epoch, opt, flag)
     local filename_model, filename_optimstate
     local info = 'This file contains the trained fast-rcnn network and its transformation ' ..
-                 'parameters (pixel scale, colourspace, mean/std).'
+                 'parameters (pixel scale, colourspace, mean/std).' ..
+                 '\nWarning: You must reconvert the network\'s layers back to cudnn backend if used.' ..
+                 'The saving operation converts all layers to the \'nn\' backend when saving to disk.'
 
     if flag then
         filename_model = paths.concat(opt.savedir,'model_' .. epoch ..'.t7')

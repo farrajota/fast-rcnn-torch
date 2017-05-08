@@ -47,6 +47,9 @@ function Tester:__init(dataLoadTable, roi_proposals, model, modelParameters, opt
     self.test_nms_thresh = opt.frcnn_test_nms_thresh
     self.test_bbox_voting_nms_thresh = opt.test_bbox_voting_nms_thresh or 0.5
 
+    -- maximum boxes per image pass-through (helps with out-of-memory situations)
+    self.max_boxes_split = opt.frcnn_test_max_boxes_split
+
     self.test_bbox_voting = false
 
     -- convert batchnorm from cudnn to nn (cudnn has a limit of 1024 roi boxes per batch)
@@ -73,6 +76,23 @@ end
 
 function Tester:getProposals(idx)
     return self.roi_proposals[idx]
+end
+
+------------------------------------------------------------------------------------------------------------
+
+function Tester:splitBoxes(boxes)
+    local nboxes = boxes:size(1)
+    local max_boxes = self.max_boxes_split
+    if nboxes > max_boxes then
+        local out = {}
+        for i=1, nboxes, max_boxes do
+            local offset = math.min(i + max_boxes - 1, nboxes)
+            table.insert(out, boxes[{{i, offset},{}}])
+        end
+        return out
+    else
+        return {boxes}
+    end
 end
 
 ------------------------------------------------------------------------------------------------------------
@@ -104,8 +124,21 @@ function Tester:testOne(ifile)
         local all_output = {}
         local all_bbox_pred = {}
 
+        -- split boxes into smaller packs of size 'self.max_test_boxes'
+        local split = self:splitBoxes(boxes)
+
         -- detect image
-        output, bbox_pred = self.ImageDetector:detect(im, boxes)
+        for _, boxes_ in pairs(split) do
+            local scores, bboxes = self.ImageDetector:detect(im, boxes_)
+            if output then
+                output = torch.cat(output, scores, 1)
+                bbox_pred = torch.cat(bbox_pred, bboxes, 1)
+            else
+                output = scores
+                bbox_pred = bboxes
+            end
+        end
+        --output, bbox_pred = self.ImageDetector:detect(im, boxes)
 
         -- clamp predictions within image
         local bbox_pred_tmp = bbox_pred:view(-1, 2)
