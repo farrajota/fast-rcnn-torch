@@ -226,6 +226,22 @@ local function copy_parameters_models(modelA, modelB)
     for i=1, #paramsA do
         paramsB[i]:copy(paramsA[i])
     end
+
+    -- copy running_mean and running_var from batchnorm
+    local bn_modules = {"nn.BatchNormalization",
+                        "cudnn.BatchNormalization",
+                        "nn.SpatialBatchNormalization",
+                        "cudnn.SpatialBatchNormalization"}
+    for k, v in pairs(bn_modules) do
+        local bnA = modelA:findMofules(v)
+        local bnB = modelB:findMofules(v)
+        if #bnA > 0 then
+            for i=1, #bnA do
+                bnB[1].running_mean:copy(bnA[1].running_mean)
+                bnB[1].running_var:copy(bnA[1].running_var)
+            end
+        end
+    end
 end
 
 ------------------------------------------------------------------------------------------------------------
