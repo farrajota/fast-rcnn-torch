@@ -221,24 +221,50 @@ end
 
 local function copy_parameters_models(modelA, modelB)
 --[[ Copy parameters (bias/weights) from a network A to B. ]]
-    local paramsA = modelA:parameters()
-    local paramsB = modelB:parameters()
-    for i=1, #paramsA do
-        paramsB[i]:copy(paramsA[i])
+
+    local function find_modules(model, bn_modules)
+        for k, v in pairs(bn_modules) do
+            local bn = model:findModules(v)
+            if next(bn) then
+                return bn
+            end
+        end
     end
 
+    -- copy weights + bias
+    do
+        local paramsA = modelA:parameters()
+        local paramsB = modelB:parameters()
+        for i=1, #paramsA do
+            paramsB[i]:copy(paramsA[i])
+        end
+    end
+
+
     -- copy running_mean and running_var from batchnorm
-    local bn_modules = {"nn.BatchNormalization",
-                        "cudnn.BatchNormalization",
-                        "nn.SpatialBatchNormalization",
-                        "cudnn.SpatialBatchNormalization"}
-    for k, v in pairs(bn_modules) do
-        local bnA = modelA:findMofules(v)
-        local bnB = modelB:findMofules(v)
-        if #bnA > 0 then
+    do
+        local bn_modules = {"nn.BatchNormalization",
+                            "cudnn.BatchNormalization"}
+        local bnA = find_modules(modelA, bn_modules)
+        local bnB = find_modules(modelB, bn_modules)
+        if bnA and bnB then
             for i=1, #bnA do
                 bnB[1].running_mean:copy(bnA[1].running_mean)
                 bnB[1].running_var:copy(bnA[1].running_var)
+            end
+        end
+    end
+
+    -- copy running_mean and running_var from spatialbatchnorm
+    do
+        local spatialbn_modules = {"nn.SpatialBatchNormalization",
+                                   "cudnn.SpatialBatchNormalization"}
+        local spatial_bnA = find_modules(modelA, spatialbn_modules)
+        local spatial_bnB = find_modules(modelB, spatialbn_modules)
+        if spatial_bnA and spatial_bnB then
+            for i=1, #spatial_bnA do
+                spatial_bnB[1].running_mean:copy(spatial_bnA[1].running_mean)
+                spatial_bnB[1].running_var:copy(spatial_bnA[1].running_var)
             end
         end
     end
