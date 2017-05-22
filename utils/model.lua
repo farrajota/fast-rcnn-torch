@@ -219,59 +219,6 @@ end
 
 ------------------------------------------------------------------------------------------------------------
 
-local function copy_parameters_models(modelA, modelB)
---[[ Copy parameters (bias/weights) from a network A to B. ]]
-
-    local function find_modules(model, bn_modules)
-        for k, v in pairs(bn_modules) do
-            local bn = model:findModules(v)
-            if next(bn) then
-                return bn
-            end
-        end
-    end
-
-    -- copy weights + bias
-    do
-        local paramsA = modelA:parameters()
-        local paramsB = modelB:parameters()
-        for i=1, #paramsA do
-            paramsB[i]:copy(paramsA[i])
-        end
-    end
-
-
-    -- copy running_mean and running_var from batchnorm
-    do
-        local bn_modules = {"nn.BatchNormalization",
-                            "cudnn.BatchNormalization"}
-        local bnA = find_modules(modelA, bn_modules)
-        local bnB = find_modules(modelB, bn_modules)
-        if bnA and bnB then
-            for i=1, #bnA do
-                bnB[1].running_mean:copy(bnA[1].running_mean)
-                bnB[1].running_var:copy(bnA[1].running_var)
-            end
-        end
-    end
-
-    -- copy running_mean and running_var from spatialbatchnorm
-    do
-        local spatialbn_modules = {"nn.SpatialBatchNormalization",
-                                   "cudnn.SpatialBatchNormalization"}
-        local spatial_bnA = find_modules(modelA, spatialbn_modules)
-        local spatial_bnB = find_modules(modelB, spatialbn_modules)
-        if spatial_bnA and spatial_bnB then
-            for i=1, #spatial_bnA do
-                spatial_bnB[1].running_mean:copy(spatial_bnA[1].running_mean)
-                spatial_bnB[1].running_var:copy(spatial_bnA[1].running_var)
-            end
-        end
-    end
-end
-
-------------------------------------------------------------------------------------------------------------
-
 local function snapshot_configs(model_fname, epoch, opt)
     return {
         bbox_meanstd = opt.bbox_meanstd,
@@ -283,7 +230,7 @@ end
 
 ------------------------------------------------------------------------------------------------------------
 
-local function store(model, modelSave, modelParameters, optimState, epoch, opt, flag)
+local function store(model, modelParameters, optimState, epoch, opt, flag)
     local filename_model, filename_optimstate
     local info = 'This file contains the trained fast-rcnn network and its transformation ' ..
                  'parameters (pixel scale, colourspace, mean/std).' ..
@@ -298,13 +245,14 @@ local function store(model, modelSave, modelParameters, optimState, epoch, opt, 
         filename_optimstate = paths.concat(opt.savedir,'optim.t7')
     end
 
-    -- copy parameters from a model to another
-    copy_parameters_models(model, modelSave)
-
     print('Saving model snapshot to: ' .. filename_model)
     torch.save(filename_optimstate, optimState)
-    torch.save(filename_model, {modelSave, modelParameters, info})
     torch.save(opt.curr_save_configs, snapshot_configs(filename_model, epoch, opt))
+    if opt.clear_buffers then
+        torch.save(filename_model, {model:clearState(), modelParameters, info})
+    else
+        torch.save(filename_model, {model, modelParameters, info})
+    end
 
     -- make a symlink to the last trained model
     local filename_symlink = paths.concat(opt.savedir,'model_final.t7')
@@ -316,20 +264,20 @@ end
 
 ------------------------------------------------------------------------------------------------------------
 
-local function storeModel(model, modelSave, modelParameters, optimState, epoch, maxepoch, opt)
+local function storeModel(model, modelParameters, optimState, epoch, maxepoch, opt)
     -- store model snapshot
     if opt.snapshot > 0 then
         if epoch%opt.snapshot == 0 or epoch == maxepoch then
-            store(model, modelSave, modelParameters, optimState, epoch, opt, true)
+            store(model, modelParameters, optimState, epoch, opt, true)
         end
     elseif opt.snapshot < 0 then
         if epoch%math.abs(opt.snapshot) == 0 or epoch == maxepoch then
-            store(model, modelSave, modelParameters, optimState, epoch, opt, false)
+            store(model, modelParameters, optimState, epoch, opt, false)
         end
     else
         -- save only at the last epoch
         if epoch == maxepoch then
-            store(model, modelSave, modelParameters, optimState, epoch, opt, false)
+            store(model, modelParameters, optimState, epoch, opt, false)
         end
     end
 end

@@ -146,12 +146,7 @@ local function LoadConfigs(model, dataLoadTable, rois, modelParameters, opts)
             modelOut = convert_model_backend(modelOut, opt, true)
             criterion:type(opt.data_type)
 
-            -- create copy of the model
-            local modelSave = modelOut:clone()
-            modelSave = convert_model_backend(modelSave, opt, false)
-
-
-            return opt, modelOut, modelSave, criterion, optimStateFn, nEpochs
+            return opt, modelOut, criterion, optimStateFn, nEpochs
         end
     end
 
@@ -191,13 +186,6 @@ local function LoadConfigs(model, dataLoadTable, rois, modelParameters, opts)
     modelOut = convert_model_backend(modelOut, opt, true)
     criterion:type(opt.data_type)
 
-    -- create a secondary model for storing.
-    -- This model will have the same parameters as the original
-    -- but it will not have allocated grad/output buffers, avoiding out-of-memory
-    -- issues when saving models in GPU when saving a network to disk.
-    local modelSave = modelOut.modules[1]:clone()
-    modelSave = convert_model_backend(modelSave, opt, false)
-
     if opt.verbose then
         print('Network:')
         print(model)
@@ -210,7 +198,7 @@ local function LoadConfigs(model, dataLoadTable, rois, modelParameters, opts)
     collectgarbage()
     collectgarbage()
 
-    return opt, modelOut, modelSave, criterion, optimStateFn, nEpochs
+    return opt, modelOut, criterion, optimStateFn, nEpochs
 end
 
 ---------------------------------------------------------------------------------------------------------------------

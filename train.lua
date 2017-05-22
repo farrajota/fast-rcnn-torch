@@ -48,7 +48,7 @@ local function train(data_gen, rois, model, modelParameters, opts)
     local configs = paths.dofile('/home/mf/Toolkits/Codigo/git/fastrcnn/configs.lua')
     --local configs = require 'fastrcnn.configs'
     local dataLoadTable = data_gen()
-    local opt, modelOut, modelSave, criterion, optimStateFn, nEpochs = configs(model, dataLoadTable, rois, modelParameters, opts or {})
+    local opt, modelOut, criterion, optimStateFn, nEpochs = configs(model, dataLoadTable, rois, modelParameters, opts or {})
     local lopt = opt
 
     print('\n==========================')
@@ -249,7 +249,7 @@ local function train(data_gen, rois, model, modelParameters, opts)
 
             -- store model
             --modelStorageFn(state.network.modules[1], modelParameters, state.config, state.epoch, state.maxepoch, opt)
-            modelStorageFn(modelOut.modules[1], modelSave, modelParameters, state.config, state.epoch, state.maxepoch, opt)
+            modelStorageFn(modelOut.modules[1], modelParameters, state.config, state.epoch, state.maxepoch, opt)
             state.t = 0
         end
     end
