@@ -60,7 +60,7 @@ function BatchSampler:setupOne(idx)
     local bg = rec.overlap:ge(self.bg_threshold_lo):cmul(rec.overlap:lt(self.bg_threshold_hi)):nonzero()
     local bg_no_overlap = rec.overlap:lt(math.max(self.bg_threshold_lo, 1e-8)):nonzero()
     return {
-       [-1] = self:takeSubset(rec, bg, idx, true),
+       [-1] = self:takeSubset(rec, bg_no_overlap, idx, true),
        [0] = self:takeSubset(rec, bg, idx, true),
        [1] = self:takeSubset(rec, fg, idx, false)
     }
@@ -138,6 +138,8 @@ function BatchSampler:selectBBoxesOne(bboxes, num_max, im_scale, im_size, do_fli
     local labels = {}
     local gtboxes = {}
 
+    if not bboxes then return end
+
     local n = bboxes:size()
 
     local function preprocess_bbox(input, flip)
@@ -170,13 +172,13 @@ end
 function BatchSampler:selectBBoxes(boxes, im_scale, im_size, do_flip)
     local bg = self:selectBBoxesOne(boxes[0], self.bg_num_each, im_scale, im_size, do_flip)
     local fg = self:selectBBoxesOne(boxes[1], self.fg_num_each, im_scale, im_size, do_flip)
+    local bg_no_overlap = self:selectBBoxesOne(boxes[-1], self.bg_num_each, im_scale, im_size, do_flip)
     local bg_rois, bg_gtboxes, bg_labels
-    if self.bg_fraction == 1 then
+    if self.bg_fraction == 1 or bg_no_overlap == nil then
         bg_rois = bg.rois
         bg_gtboxes = bg.gtboxes
         bg_labels = bg.labels
     else
-        local bg_no_overlap = self:selectBBoxesOne(boxes[-1], self.bg_num_each, im_scale, im_size, do_flip)
         local num_bg_samples = math.ceil(self.bg_num_each*self.bg_fraction)
         local num_oe_bg_samples = self.bg_num_each - num_bg_samples
         if num_bg_samples>0 and num_oe_bg_samples>0 then
@@ -209,6 +211,8 @@ function BatchSampler:getSample(idx)
     -- fetch boxes
     local boxes = self:setupOne(idx)
     if not boxes then
+        return {}
+    elseif boxes[0] == nil or boxes[1] == nil then
         return {}
     end
 
