@@ -5,10 +5,8 @@
 
 local tds = require 'tds'
 local xlua = require 'xlua'
---local eval = require 'fastrcnn.eval'
---local utils = require 'fastrcnn.utils'
-local eval = paths.dofile('/home/mf/Toolkits/Codigo/git/fastrcnn/eval/init.lua')
-local utils = paths.dofile('/home/mf/Toolkits/Codigo/git/fastrcnn/utils/init.lua')
+local eval = require 'fastrcnn.eval'
+local utils = require 'fastrcnn.utils'
 
 if not fastrcnn then fastrcnn = {} end
 
@@ -208,14 +206,6 @@ function Tester:test()
     local raw_bbox_pred = tds.hash()
 
     local aboxes
-    --self.cache_filename = '/home/mf/Toolkits/Codigo/git/fastrcnn-example/data/cache.t7'
-    --self.cache_filename = '/home/mf/Toolkits/Codigo/git/pedestrian_detector/data/exp/caltech/alexnet_vanilla_frcnn/cache.t7'
-    --if paths.filep(self.cache_filename) then
-    --   print('Load test cache from file: ' .. self.cache_filename)
-    --   aboxes = torch.load(self.cache_filename)
-    --else
-
-
 
     if self.progressbar then xlua.progress(0, self.nFiles) end
     for ifile = 1, self.nFiles do
@@ -232,10 +222,6 @@ function Tester:test()
     aboxes_t = nil
 
     collectgarbage()
-
-    --print('Save test cache to file: ' .. self.cache_filename)
-    --torch.save(self.cache_filename, aboxes)
-    --end
 
     return self:computeAP(aboxes)
 end

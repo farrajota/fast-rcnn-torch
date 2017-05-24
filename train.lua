@@ -27,7 +27,6 @@
 --]]
 
 
---local function train(dataLoadTable, rois, model, modelParameters, opts)
 local function train(data_gen, rois, model, modelParameters, opts)
 
     assert(data_gen, 'Invalid input: dataLoadTable')
@@ -36,8 +35,7 @@ local function train(data_gen, rois, model, modelParameters, opts)
     assert(modelParameters, 'Invalid input: modelParameters')
 
     local tnt = require 'torchnet'
-    --local utils = require 'fastrcnn.utils'
-    local utils = paths.dofile('/home/mf/Toolkits/Codigo/git/fastrcnn/utils/init.lua')
+    local utils = require 'fastrcnn.utils'
     local modelStorageFn = utils.model.storeModel
 
 
@@ -45,8 +43,7 @@ local function train(data_gen, rois, model, modelParameters, opts)
     -- Load configs (data, model, criterion, optimState)
     --------------------------------------------------------------------------------
 
-    local configs = paths.dofile('/home/mf/Toolkits/Codigo/git/fastrcnn/configs.lua')
-    --local configs = require 'fastrcnn.configs'
+    local configs = require 'fastrcnn.configs'
     local dataLoadTable = data_gen()
     local opt, modelOut, criterion, optimStateFn, nEpochs = configs(model, dataLoadTable, rois, modelParameters, opts or {})
     local lopt = opt
@@ -57,64 +54,13 @@ local function train(data_gen, rois, model, modelParameters, opts)
 
     -- set number of iterations
     local nItersTrain = opt.trainIters
-    local nItersTest
-    if dataLoadTable.test then
-        nItersTest = dataLoadTable.test.nfiles/opt.frcnn_imgs_per_batch
-    end
+    local nItersTest = opt.trainIters
 
     -- classes
     local classes = utils.table.concatTables({'background'}, dataLoadTable.train.classLabel)
 
     -- convert modules to a specified tensor type
     local function cast(x) return x:type(opt.dataType) end
-
---[[
-    local function getIterator_test(mode)
-       return tnt.ParallelDatasetIterator{
-          nthread = opt.nThreads,
-          init    = function(threadid)
-             require 'torch'
-             require 'torchnet'
-             opt = lopt
-             paths.dofile('/home/mf/Toolkits/Codigo/git/fastrcnn/init.lua')
-             torch.manualSeed(threadid+opt.manualSeed)
-          end,
-          closure = function()
-
-              -- data loader/generator
-              local data_loader = data_gen()
-              local batchprovider = fastrcnn.BatchROISampler(data_loader[mode], rois[mode], modelParameters, opt, mode)
-
-              -- number of iterations per epoch
-              local nIters = data_loader[mode].nfiles
-
-              -- setup dataset iterator
-              local list_dataset = tnt.ListDataset{
-                  list = torch.range(1, nIters):long(),
-                  load = function(idx)
-                      return batchprovider:getSample(idx)
-                  end
-              }
-              return list_dataset
-          end,
-       }
-    end
-
-    for _, mode in pairs({'train', 'test'}) do
-        print('Starting mode: ', mode)
-        local iter = getIterator_test(mode)
-        local idx = 1
-        local data_loader = data_gen()
-        local nfiles = data_loader[mode].nfiles
-        for saple in iter() do
-            xlua.progress(idx, nfiles)
-            idx = idx + 1
-        end
-    end
-
-    os.exit()
---]]
-
 
 
     --------------------------------------------------------------------------------
@@ -127,11 +73,8 @@ local function train(data_gen, rois, model, modelParameters, opts)
           init    = function(threadid)
              require 'torch'
              require 'torchnet'
+             require 'fastrcnn'
              opt = lopt
-             --require 'fastrcnn.BatchROISampler'
-             paths.dofile('/home/mf/Toolkits/Codigo/git/fastrcnn/init.lua')
-             --paths.dofile('/home/mf/Toolkits/Codigo/git/fastrcnn/BatchROISampler.lua')
-             --paths.dofile('/home/mf/Toolkits/Codigo/git/fastrcnn/ROIProcessor.lua')
              torch.manualSeed(threadid+opt.manualSeed)
           end,
           closure = function()

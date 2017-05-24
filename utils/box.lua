@@ -3,8 +3,7 @@
 ]]
 
 
---local utils_table = require 'fastrcnn.utils.table'
-local utils_table = paths.dofile('/home/mf/Toolkits/Codigo/git/fastrcnn/utils/table.lua')
+local utils_table = require 'fastrcnn.utils.table'
 
 
 ------------------------------------------------------------------------------------------------------------

@@ -3,10 +3,8 @@
 ]]
 
 
---local box = require 'fastrcnn.utils.box'
---local boxoverlap = box.boxoverlap
-local utils = paths.dofile('/home/mf/Toolkits/Codigo/git/fastrcnn/utils/init.lua')
-local boxoverlap = utils.box.boxoverlap
+local box = require 'fastrcnn.utils.box'
+local boxoverlap = box.boxoverlap
 
 
 ---------------------------------------------------------------------------------------------------------------------

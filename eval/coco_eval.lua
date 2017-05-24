@@ -5,8 +5,7 @@
 
 require 'xlua'
 require 'json'
---local coco_eval_python = require 'fastrcnn.eval.coco'
-local coco_eval_python = paths.dofile('coco.lua')
+local coco_eval_python = require 'fastrcnn.eval.coco'
 
 ------------------------------------------------------------------------------------------------------------
 

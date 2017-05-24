@@ -3,6 +3,8 @@
 ]]
 
 
+------------------------------------------------------------------------------------------------------------
+
 local function logical2ind(logical)
     if logical:numel() == 0 then
         return torch.LongTensor()
@@ -58,24 +60,19 @@ end
 
 return {
     -- model utility functions
-    model = paths.dofile('model.lua'),
-    --model = require 'fastrcnn.utils.model',
+    model = require 'fastrcnn.utils.model',
 
     -- non-maximum suppression
-    nms = paths.dofile('nms.lua'),
-    --nms = require 'fastrcnn.utils.nms',
+    nms = require 'fastrcnn.utils.nms',
 
     -- bounding box overlap
-    box = paths.dofile('box.lua'),
-    --box = require 'fastrcnn.utils.box',
+    box = require 'fastrcnn.utils.box',
 
     -- table functions
-    table = paths.dofile('table.lua'),
-    --table = require 'fastrcnn.utils.table',
+    table = require 'fastrcnn.utils.table',
 
     -- load matlab files
-    load = paths.dofile('load.lua'),
-    --load = require 'fastrcnn.utils.load',
+    load = require 'fastrcnn.utils.load',
 
     -- other functions
     logical2ind = logical2ind,

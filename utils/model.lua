@@ -3,6 +3,10 @@
 ]]
 
 
+require 'nn'
+
+------------------------------------------------------------------------------------------------------------
+
 local function MSRinit(model)
     for k,v in pairs(model:findModules('nn.SpatialConvolution')) do
         local n = v.kW*v.kH*v.nOutputPlane
