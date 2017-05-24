@@ -7,6 +7,7 @@ of patent rights can be found in the PATENTS file in the same directory.
 
 ------------------------------------------------------------------------------]]
 
+
 local BBoxNorm, parent = torch.class('nn.BBoxNorm','nn.Module')
 
 function BBoxNorm:__init(mean, std)
