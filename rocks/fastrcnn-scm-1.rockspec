@@ -10,7 +10,9 @@ source = {
 description = {
     summary = "Fast-RCNN package for Torch7.",
     detailed = [[
-       Fast-RCNN implementation for Torch7. This package allows to easily train, test and implement an FRCNN object detector in Lua.
+       Fast-RCNN implementation for Torch7. This package allows
+       to easily train, test and implement an FRCNN object detector
+       in Lua.
     ]],
     homepage = "https://github.com/farrajota/fast-rcnn-torch",
     license = "MIT",
