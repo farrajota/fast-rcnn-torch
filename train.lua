@@ -57,13 +57,64 @@ local function train(data_gen, rois, model, modelParameters, opts)
 
     -- set number of iterations
     local nItersTrain = opt.trainIters
-    local nItersTest = dataLoadTable.test.nfiles/opt.frcnn_imgs_per_batch
+    local nItersTest
+    if dataLoadTable.test then
+        nItersTest = dataLoadTable.test.nfiles/opt.frcnn_imgs_per_batch
+    end
 
     -- classes
     local classes = utils.table.concatTables({'background'}, dataLoadTable.train.classLabel)
 
     -- convert modules to a specified tensor type
     local function cast(x) return x:type(opt.dataType) end
+
+--[[
+    local function getIterator_test(mode)
+       return tnt.ParallelDatasetIterator{
+          nthread = opt.nThreads,
+          init    = function(threadid)
+             require 'torch'
+             require 'torchnet'
+             opt = lopt
+             paths.dofile('/home/mf/Toolkits/Codigo/git/fastrcnn/init.lua')
+             torch.manualSeed(threadid+opt.manualSeed)
+          end,
+          closure = function()
+
+              -- data loader/generator
+              local data_loader = data_gen()
+              local batchprovider = fastrcnn.BatchROISampler(data_loader[mode], rois[mode], modelParameters, opt, mode)
+
+              -- number of iterations per epoch
+              local nIters = data_loader[mode].nfiles
+
+              -- setup dataset iterator
+              local list_dataset = tnt.ListDataset{
+                  list = torch.range(1, nIters):long(),
+                  load = function(idx)
+                      return batchprovider:getSample(idx)
+                  end
+              }
+              return list_dataset
+          end,
+       }
+    end
+
+    for _, mode in pairs({'train', 'test'}) do
+        print('Starting mode: ', mode)
+        local iter = getIterator_test(mode)
+        local idx = 1
+        local data_loader = data_gen()
+        local nfiles = data_loader[mode].nfiles
+        for saple in iter() do
+            xlua.progress(idx, nfiles)
+            idx = idx + 1
+        end
+    end
+
+    os.exit()
+--]]
+
 
 
     --------------------------------------------------------------------------------
@@ -248,8 +299,8 @@ local function train(data_gen, rois, model, modelParameters, opts)
             meters:reset()
 
             -- store model
-            --modelStorageFn(state.network.modules[1], modelParameters, state.config, state.epoch, state.maxepoch, opt)
-            modelStorageFn(modelOut.modules[1], modelParameters, state.config, state.epoch, state.maxepoch, opt)
+            modelStorageFn(state.network.modules[1], modelParameters, state.config, state.epoch, state.maxepoch, opt)
+            --modelStorageFn(modelOut.modules[1], modelParameters, state.config, state.epoch, state.maxepoch, opt)
             state.t = 0
         end
     end
@@ -303,16 +354,18 @@ local function train(data_gen, rois, model, modelParameters, opts)
     -- Test the model
     --------------------------------------------------------------------------------
 
-    print('\n')
-    print('**********************************************')
-    print('*** Test the network ')
-    print('**********************************************')
+    if dataLoadTable.test then
+        print('\n')
+        print('**********************************************')
+        print('*** Test the network ')
+        print('**********************************************')
 
-    engine:test{
-        network   = modelOut,
-        iterator  = getIterator('test'),
-        criterion = criterion
-    }
+        engine:test{
+            network   = modelOut,
+            iterator  = getIterator('test'),
+            criterion = criterion
+        }
+    end
 
 
     --------------------------------------------------------------------------------
