@@ -1,12 +1,12 @@
-# Fast-RCNN as a module for torch7
+# Fast-RCNN package for torch7
 
 [Fast-RCNN](https://github.com/rbgirshick/fast-rcnn) implementation for Torch7 as a package with methods for training and testing an object detector network.
 
 
 ## Features
 
-- Fast R-CNN as a package with simple API methods for training, testing, detecting and visualizing objects in images.
-- Multi-threaded data loading/processing;
+- Fast R-CNN as a package with a simple API for training, testing, detecting and visualizing objects in images.
+- Multi-threaded data loading/preprocessing;
 - Multi-GPU support;
 - Common data augmentation techniques (color jitter, scaling, etc.);
 - Pascal VOC / MS COCO mAP evaluation schemes.
@@ -57,8 +57,7 @@ local fastrcnn = require("fastrcnn")
 This loads a table with the necessary methods for creating, training and testing a Fast R-CNN network. Also, it contains a method for detecting objects in images and for visualizing the detections with a window frame (requires `qt` to work).
 
 
-<a name="train"></a>
-### train ###
+### train
 
 ```lua
 fastrcnn.train(dataLoadTable, rois, model, modelParameters, opts)
@@ -68,15 +67,15 @@ Trains a model on a given dataset with some proposals.
 
 #### Parameters
 
-- `dataLoadTable`: Table with methods for loading data. (*type=table*)
+- `dataLoadTable`: table with methods for loading data. (*type=table*)
 - `rois`: Region-of-Interest bounding box proposals. (*type=table*)
-- `model`: A Fast R-CNN network. (*type=table*)
-- `modelParameters`: The model's parameters (color space, meanstd, pixel_scale and stride). (*type=table*)
-- `opts`: Training options. (*type=table*)
+- `model`: a Fast R-CNN style network. (*type=table*)
+- `modelParameters`: model parameters (color space, meanstd, pixel_scale and stride). (*type=table*)
+- `opts`: training options. (*type=table*)
 
 
-<a name="test"></a>
-### test ###
+
+### test
 
 ```lua
 fastrcnn.test(dataLoadTable, rois, model, modelParameters, opt)
@@ -93,20 +92,22 @@ Test a model on a dataset (mAP score).
 - `opts`: Testing options. (*type=table*)
 
 
-<a name="detector"></a>
-### detector ###
+### detector
 
 ```lua
 imdetector = fastrcnn.Detector(model, modelParameters, opt)
 ```
 
-Object detector class.
+Object detector class. This provides a simple interface to image inference.
 
 #### Parameters
 
 - `model`: A Fast R-CNN network. (*type=table*)
 - `modelParameters`: The model's parameters (color space, meanstd, pixel_scale and stride). (*type=table*)
 - `opts`: Testing options. (*type=table*)
+
+
+#### Object detector class.
 
 ```lua
 scores, bboxes = imdetector:detect(im, proposals)
@@ -120,8 +121,7 @@ Receives an image and region proposals as input and outputs scores and bounding 
 - `proposals`: Region-of-Interest bounding box proposals (*type=torch.Tensor*)
 
 
-<a name="utils"></a>
-### utils ###
+### utils
 
 This package contains several utility methods for creating models, loading roi proposals from file or visualizing object detection with a window frame.
 
@@ -138,7 +138,9 @@ This package contains several utility methods for creating models, loading roi p
 
 ## Demos
 
-This [repo](https://github.com/farrajota/fast-rcnn-examples) contains code examples on how to train+test an object detector using this module for the Pascal VOC 2007 dataset.
+This [repo](https://github.com/farrajota/fast-rcnn-examples) contains code examples on how to train+test an object detector using this module for the Pascal VOC 2007, 2012 and MS COCO datasets.
+
+Another [repo](https://github.com/farrajota/fast-rcnn-examples) contains code examples on how to train+test an object detector for pedestrian detection on the Caltech Pedestrian dataset.
 
 
 ## License
@@ -146,6 +148,6 @@ This [repo](https://github.com/farrajota/fast-rcnn-examples) contains code examp
 MIT license (see the LICENSE file)
 
 
-## Acknowledges
+## Acknowledgements
 
 This package was heavily inspired by the following repositories: [Fast-RCNN](https://github.com/rbgirshick/fast-rcnn), [Fast-RCNN for Torch7](https://github.com/mahyarnajibi/fast-rcnn-torch) and [facebook/multipathnet](https://github.com/facebookresearch/multipathnet).
