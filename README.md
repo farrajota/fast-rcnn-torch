@@ -138,9 +138,9 @@ This package contains several utility methods for creating models, loading roi p
 
 ## Demos
 
-This [repo](https://github.com/farrajota/fast-rcnn-examples) contains code examples on how to train+test an object detector using this module for the Pascal VOC 2007, 2012 and MS COCO datasets.
+This [repo](https://github.com/farrajota/fastrcnn-example-torch) contains code examples on how to train+test an object detector using this module for the Pascal VOC 2007, 2012 and MS COCO datasets.
 
-Another [repo](https://github.com/farrajota/fast-rcnn-examples) contains code examples on how to train+test an object detector for pedestrian detection on the Caltech Pedestrian dataset.
+Another [repo](https://github.com/farrajota/pedestrian_detector_torch) contains code examples on how to train+test an object detector for pedestrian detection on the Caltech Pedestrian dataset.
 
 
 ## License
