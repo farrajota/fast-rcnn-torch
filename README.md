@@ -5,7 +5,7 @@
 
 ## Features
 
-- Fast R-CNN as a package with a simple API for training, testing, detecting and visualizing objects in images.
+- Simple API for training, testing, detecting and visualizing objects in images.
 - Multi-threaded data loading/preprocessing;
 - Multi-GPU support;
 - Common data augmentation techniques (color jitter, scaling, etc.);
