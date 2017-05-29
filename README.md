@@ -13,7 +13,7 @@
 - Proposals data augmentation during train
 
 
-## Package installation
+# Installation
 
 ### Requirements
 
@@ -26,7 +26,7 @@
 - torchnet
 
 
-### Installation
+### Package installation
 
 To install this package you need to have [Torch7](http://torch.ch/docs/getting-started.html) installed on your machine and some other packages. To install this packages, simply do:
 
@@ -46,7 +46,7 @@ cd fast-rcnn-torch && luarocks make rocks/*
 ```
 
 
-## Usage
+# Usage
 
 To call this package simply do:
 
@@ -57,7 +57,7 @@ local fastrcnn = require("fastrcnn")
 This loads a table with the necessary methods for creating, training and testing a Fast R-CNN network. Also, it contains a method for detecting objects in images and for visualizing the detections with a window frame (requires `qt` to work).
 
 
-### train
+## train
 
 ```lua
 fastrcnn.train(dataLoadTable, rois, model, modelParameters, opts)
@@ -65,7 +65,7 @@ fastrcnn.train(dataLoadTable, rois, model, modelParameters, opts)
 
 Trains a model on a given dataset with some proposals.
 
-#### Parameters
+### Parameters
 
 - `dataLoadTable`: table with methods for loading data. (*type=table*)
 - `rois`: Region-of-Interest bounding box proposals. (*type=table*)
@@ -75,7 +75,7 @@ Trains a model on a given dataset with some proposals.
 
 
 
-### test
+## test
 
 ```lua
 fastrcnn.test(dataLoadTable, rois, model, modelParameters, opt)
@@ -83,7 +83,7 @@ fastrcnn.test(dataLoadTable, rois, model, modelParameters, opt)
 
 Test a model on a dataset (mAP score).
 
-#### Parameters
+### Parameters
 
 - `dataLoadTable`: Table with methods for loading data. (*type=table*)
 - `rois`: Region-of-Interest bounding box proposals. (*type=table*)
@@ -92,7 +92,7 @@ Test a model on a dataset (mAP score).
 - `opts`: Testing options. (*type=table*)
 
 
-### detector
+## detector
 
 ```lua
 imdetector = fastrcnn.Detector(model, modelParameters, opt)
@@ -100,14 +100,14 @@ imdetector = fastrcnn.Detector(model, modelParameters, opt)
 
 Object detector class. This provides a simple interface to image inference.
 
-#### Parameters
+### Parameters
 
 - `model`: A Fast R-CNN network. (*type=table*)
 - `modelParameters`: The model's parameters (color space, meanstd, pixel_scale and stride). (*type=table*)
 - `opts`: Testing options. (*type=table*)
 
 
-#### Object detector class.
+### Object detector class.
 
 ```lua
 scores, bboxes = imdetector:detect(im, proposals)
@@ -115,13 +115,13 @@ scores, bboxes = imdetector:detect(im, proposals)
 
 Receives an image and region proposals as input and outputs scores and bounding boxes.
 
-#### Parameters
+### Parameters
 
 - `im`: Image tensor. (*type=torch.Tensor*)
 - `proposals`: Region-of-Interest bounding box proposals (*type=torch.Tensor*)
 
 
-### utils
+## utils
 
 This package contains several utility methods for creating models, loading roi proposals from file or visualizing object detection with a window frame.
 
@@ -143,11 +143,11 @@ This [repo](https://github.com/farrajota/fastrcnn-example-torch) contains code e
 Another [repo](https://github.com/farrajota/pedestrian_detector_torch) contains code examples on how to train+test an object detector for pedestrian detection on the Caltech Pedestrian dataset.
 
 
-## License
+# License
 
 MIT license (see the LICENSE file)
 
 
-## Acknowledgements
+# Acknowledgements
 
 This package was heavily inspired by the following repositories: [Fast-RCNN](https://github.com/rbgirshick/fast-rcnn), [Fast-RCNN for Torch7](https://github.com/mahyarnajibi/fast-rcnn-torch) and [facebook/multipathnet](https://github.com/facebookresearch/multipathnet).
