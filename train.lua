@@ -243,7 +243,6 @@ local function train(data_gen, rois, model, modelParameters, opts)
 
             -- store model
             modelStorageFn(state.network.modules[1], modelParameters, state.config, state.epoch, state.maxepoch, opt)
-            --modelStorageFn(modelOut.modules[1], modelParameters, state.config, state.epoch, state.maxepoch, opt)
             state.t = 0
         end
     end
