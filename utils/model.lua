@@ -79,22 +79,27 @@ local function setDataParallel(net, GPU, nGPU)
         end)
     end
     net:apply(function(x) return ConvertModule(x) end)
+end
 
+------------------------------------------------------------------------------------------------------------
 
-  --[[
+local function resetDataParallel(net, GPU)
+    local GPU_id = GPU or 1
     if torch.type(model) == 'nn.DataParallelTable' then
-        model = makeDataParallel(model:get(1), nGPU)
+        return cleanDPT(model, GPU_id)
     elseif torch.type(model) == 'nn.Sequential' or torch.type(model) == 'nn.gModule' then
         local temp_model = nn.Sequential()
         for i, module in ipairs(model.modules) do
             if torch.type(module) == 'nn.DataParallelTable' then
-                module = makeDataParallel(module:get(1), nGPU)
+                temp_model:add(cleanDPT(module, GPU_id))
+            else
+                temp_model:add(module)
             end
         end
+        return temp_model
     else
         error('This saving function only works with Sequential or DataParallelTable modules.')
     end
-    --]]
 end
 
 ------------------------------------------------------------------------------------------------------------
@@ -120,9 +125,6 @@ end
 ------------------------------------------------------------------------------------------------------------
 
 local function loadDataParallel(filename, nGPU)
-    --if opt.backend == 'cudnn' then
-    --   require 'cudnn'
-    --end
     local model = torch.load(filename)
     if torch.type(model) == 'nn.DataParallelTable' then
         return makeDataParallelTable(model:get(1):float(), nGPU)
@@ -253,9 +255,9 @@ local function store(model, modelParameters, optimState, epoch, opt, flag)
     torch.save(filename_optimstate, optimState)
     torch.save(opt.curr_save_configs, snapshot_configs(filename_model, epoch, opt))
     if opt.clear_buffers then
-        torch.save(filename_model, {model:clearState(), modelParameters, info})
+        torch.save(filename_model, {resetDataParallel(model:clearState(), opt.GPU), modelParameters, info})
     else
-        torch.save(filename_model, {model, modelParameters, info})
+        torch.save(filename_model, {resetDataParallel(model, opt.GPU), modelParameters, info})
     end
 
     -- make a symlink to the last trained model
@@ -296,6 +298,7 @@ return {
     -- parallelize networks
     makeDataParallel = makeDataParallel,
     setDataParallel  = setDataParallel,
+    resetDataParallel = resetDataParallel,
     saveDataParallel = saveDataParallel,
     loadDataParallel = loadDataParallel,
 
