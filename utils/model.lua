@@ -258,9 +258,7 @@ local function store(model, modelParameters, optimState, epoch, opt, flag)
     if opt.clear_buffers then
         model = model:clearState()
     end
-    setDataParallel(model, opt.GPU, 1)  -- set nn.DataParallelTable to use only 1 GPU
     torch.save(filename_model, {model, modelParameters, info})
-    setDataParallel(model, opt.GPU, opt.nGPU)
 
     -- make a symlink to the last trained model
     local filename_symlink = paths.concat(opt.savedir,'model_final.t7')
