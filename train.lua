@@ -167,6 +167,16 @@ local function train(data_gen, rois, model, modelParameters, opts)
     end
 
 
+    -- copy sample to GPU buffer:
+    local samples = {}
+    engine.hooks.onSample = function(state)
+        cutorch.synchronize(); collectgarbage();
+        utils.table.recursiveCast(samples, state.sample, 'torch.CudaTensor')
+        state.sample.input = samples[1]
+        state.sample.target = samples[2]
+    end
+
+
     engine.hooks.onForwardCriterion = function(state)
         if state.training then
             meters.train_conf:add(state.network.output[1],state.sample.target[1])
@@ -203,13 +213,20 @@ local function train(data_gen, rois, model, modelParameters, opts)
         end
     end
 
-    -- copy sample to GPU buffer:
-    local samples = {}
-    engine.hooks.onSample = function(state)
-        cutorch.synchronize(); collectgarbage();
-        utils.table.recursiveCast(samples, state.sample, 'torch.CudaTensor')
-        state.sample.input = samples[1]
-        state.sample.target = samples[2]
+
+    --[[ Gradient clipping to try to prevent the gradient from exploding. ]]--
+    -- ref: https://github.com/facebookresearch/torch-rnnlib/blob/master/examples/word-language-model/word_lm.lua#L216-L233
+    local function clipGradients(grads, norm)
+        local totalnorm = grads:norm()
+        if totalnorm > norm then
+            local coeff = norm / math.max(totalnorm, 1e-6)
+            grads:mul(coeff)
+        end
+    end
+    engine.hooks.onBackward = function(state)
+        if opt.grad_clip > 0 then
+            clipGradients(state.gradParams, opt.grad_clip)
+        end
     end
 
 

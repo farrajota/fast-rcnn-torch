@@ -25,7 +25,7 @@ function Options:parse(opts)
     opt.nThreads, opt.verbose, opt.progressbar, opt.printConfusion,
     opt.LR, opt.LRdecay, opt.momentum, opt.weightDecay, opt.optMethod,
     opt.threshold, opt.trainIters, opt.epochStart, opt.schedule, opt.continue,
-    opt.clear_buffers, opt.snapshot, opt.optimize, opt.testInter, opt.frcnn_scales,
+    opt.clear_buffers, opt.snapshot, opt.optimize, opt.testInter, opt.grad_clip, opt.frcnn_scales,
     opt.frcnn_max_size, opt.frcnn_imgs_per_batch, opt.frcnn_rois_per_img,
     opt.frcnn_fg_fraction, opt.frcnn_bg_fraction, opt.frcnn_fg_thresh,
     opt.frcnn_bg_thresh_hi, opt.frcnn_bg_thresh_lo, opt.frcnn_bbox_thresh,
@@ -91,6 +91,8 @@ function Options:parse(opts)
      help='Optimize network memory usage using optnet.'},
     {arg='testInter', type='boolean', default=true,
      help='If true, does intermediate testing of the model. Else it only tests the network at the end of the train.'},
+    {arg='grad_clip', type='number', default=0,
+     help='Gradient clipping (to prevent exploding gradients).'},
 
     -------------------------------------------------------------------------------
     -- FRCNN Training options
