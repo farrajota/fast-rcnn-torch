@@ -21,7 +21,7 @@ function Options:parse(opts)
 
     local opt = {}
 
-    _, opt.savedir, opt.manualSeed, opt.GPU, opt.nGPU,
+    _, opt.savedir, opt.manualSeed, opt.GPU, opt.nGPU, opt.disable_cudnn,
     opt.nThreads, opt.verbose, opt.progressbar, opt.printConfusion,
     opt.LR, opt.LRdecay, opt.momentum, opt.weightDecay, opt.optMethod,
     opt.threshold, opt.trainIters, opt.epochStart, opt.schedule, opt.continue,
@@ -47,6 +47,8 @@ function Options:parse(opts)
      help='Default preferred GPU, if set to -1: no GPU.'},
     {arg='nGPU', type='number', default=1,
      help='Number of GPUs to use by default.'},
+    {arg='disable_cudnn', type='boolean', default=false,
+     help='Force disable cudnn backend if available.'},
     {arg='nThreads', type='number', default=4,
      help='Number of data loading threads.'},
     {arg='verbose', type='boolean', default=true,
