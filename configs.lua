@@ -16,7 +16,7 @@ local function convert_model_backend(model, opt, is_gpu)
         model:cuda()
 
         -- require cudnn if available
-        if pcall(require, 'cudnn') then
+        if pcall(require, 'cudnn') and not opt.disable_cudnn then
             cudnn.convert(model, cudnn):cuda()
             cudnn.benchmark = true
             if opt.cudnn_deterministic then
