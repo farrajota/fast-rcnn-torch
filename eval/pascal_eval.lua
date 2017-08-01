@@ -142,9 +142,9 @@ end
 
 ---------------------------------------------------------------------------------------------------------------------
 
-local function evaluate(loader,  res)
+local function evaluate(loader, aboxes)
     assert(loader)
-    assert(res)
+    assert(aboxes)
 
     local nfiles = loader.nfiles
     local classes = loader.classLabel
@@ -155,8 +155,8 @@ local function evaluate(loader,  res)
     local res = {}
     for iclass=1, #classes do
         local className = classes[iclass]
-        local aboxes = getAboxes(res, iclass)
-        res[iclass] = VOCevaldet(loader.getGTBoxes, nfiles, aboxes, iclass)
+        local boxes = getAboxes(aboxes, iclass)
+        res[iclass] = VOCevaldet(loader.getGTBoxes, nfiles, boxes, iclass)
         print(('%s AP: %0.5f'):format(className, res[iclass]))
     end
     res = torch.Tensor(res)
