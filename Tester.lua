@@ -60,8 +60,10 @@ function Tester:__init(dataLoadTable, roi_proposals, model, modelParameters, opt
     -- set model to test mode
     model:evaluate()
 
-
     self.cache_filename = paths.concat(opt.savedir, 'cache_tester.t7')
+
+    -- use the disk to store evaluation results to save memory (takes longer to complete.)
+    self.frcnn_test_use_cache = opt.frcnn_test_use_cache or false
 end
 
 ------------------------------------------------------------------------------------------------------------
@@ -198,32 +200,87 @@ end
 
 ------------------------------------------------------------------------------------------------------------
 
-function Tester:test()
 
-    -- table initializations
+function Tester:test_no_cache()
+
     local aboxes_t = tds.hash()
-    local raw_output = tds.hash()
-    local raw_bbox_pred = tds.hash()
-
-    local aboxes
 
     if self.progressbar then xlua.progress(0, self.nFiles) end
     for ifile = 1, self.nFiles do
-        local img_boxes, raw_boxes = self:testOne(ifile)
+        local img_boxes, _ = self:testOne(ifile)
         aboxes_t[ifile] = img_boxes
 
-        -- progress bar
         if self.progressbar then xlua.progress(ifile, self.nFiles) end
     end
 
-
     aboxes_t = self:keepTopKPerImage(aboxes_t, 100) -- coco only accepts 100/image
-    aboxes = self:transposeBoxes(aboxes_t)
-    aboxes_t = nil
+    local aboxes = self:transposeBoxes(aboxes_t)
 
     collectgarbage()
 
-    return self:computeAP(aboxes)
+    -- compute statistics
+    self:computeAP(aboxes)
+end
+
+------------------------------------------------------------------------------------------------------------
+
+function Tester:test_use_cache()
+
+    local aboxes_t = tds.hash()
+    local save_dir = paths.concat('Tester_Eval/')
+    print('\nSaving temporary files to: ' .. save_dir)
+    if not paths.filep(save_dir) then
+        os.execute('mkdir -p ' .. save_dir)
+    end
+
+    if self.progressbar then xlua.progress(0, self.nFiles) end
+    for ifile = 1, self.nFiles do
+        local img_boxes, _ = self:testOne(ifile)
+        local boxes, _ = utils.box.keep_top_k(img_boxes, 100)
+        for i=1, #boxes do
+            torch.save(paths.concat(save_dir, ('boxes_file_%d_class_%d.t7'):format(ifile, i)), boxes[i])
+        end
+
+        if self.progressbar then
+            xlua.progress(ifile, self.nFiles)
+        end
+
+        collectgarbage()
+    end
+
+    -- group boxes by class
+    print('Grouping all boxes by class ID (this will take a while to complete)')
+    local aboxes = tds.hash()
+    for iclass=1, self.nClasses do
+        print('Loading files for class ' .. iclass .. '/' .. self.nClasses)
+        local boxes = tds.hash()
+        for ifile = 1, self.nFiles do
+            boxes[ifile] = torch.load(paths.concat(save_dir, ('boxes_file_%d_class_%d.t7'):format(ifile, iclass)))
+            xlua.progress(ifile, self.nFiles)
+        end
+        -- save boxes to file
+        local filename = paths.concat(save_dir, ('res_class_%d.t7'):format(iclass))
+        torch.save(filename, boxes)
+        aboxes[iclass] = filename
+
+        collectgarbage()
+    end
+
+    -- compute statistics
+    self:computeAP(aboxes)
+
+    -- teardown step
+    os.execute('rm -rf ' .. save_dir)
+end
+
+------------------------------------------------------------------------------------------------------------
+
+function Tester:test()
+    if self.frcnn_test_use_cache then
+        self:test_use_cache()  -- stores results to files on disk
+    else
+        self:test_no_cache()  -- stores results in memory (requires alot of memory! >32GB ram)
+    end
 end
 
 ------------------------------------------------------------------------------------------------------------
