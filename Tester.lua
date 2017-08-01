@@ -200,11 +200,9 @@ end
 
 ------------------------------------------------------------------------------------------------------------
 
-
 function Tester:test_no_cache()
 
     local aboxes_t = tds.hash()
-
     if self.progressbar then xlua.progress(0, self.nFiles) end
     for ifile = 1, self.nFiles do
         local img_boxes, _ = self:testOne(ifile)
