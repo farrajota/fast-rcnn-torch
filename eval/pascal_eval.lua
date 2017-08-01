@@ -128,9 +128,23 @@ end
 
 ---------------------------------------------------------------------------------------------------------------------
 
-local function evaluate(loader,  aboxes)
+local function getAboxes(res, class)
+    if type(res) == 'table' or type(res) == 'cdata' then -- table or tds.hash
+        if type(res[class]) == 'string' then
+            return torch.load(res[class])
+        else
+            return res[class]
+        end
+    else
+        error("Unknown res object: type " .. type(res))
+    end
+end
+
+---------------------------------------------------------------------------------------------------------------------
+
+local function evaluate(loader,  res)
     assert(loader)
-    assert(aboxes)
+    assert(res)
 
     local nfiles = loader.nfiles
     local classes = loader.classLabel
@@ -141,7 +155,8 @@ local function evaluate(loader,  aboxes)
     local res = {}
     for iclass=1, #classes do
         local className = classes[iclass]
-        res[iclass] = VOCevaldet(loader.getGTBoxes, nfiles, aboxes[iclass], iclass)
+        local aboxes = getAboxes(res, iclass)
+        res[iclass] = VOCevaldet(loader.getGTBoxes, nfiles, aboxes, iclass)
         print(('%s AP: %0.5f'):format(className, res[iclass]))
     end
     res = torch.Tensor(res)
