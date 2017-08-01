@@ -135,6 +135,8 @@ function Options:parse(opts)
      help='BBox voting Non-Maximum suppression threshold.'},
     {arg='frcnn_test_mode', type='string', default='voc',
      help='mAP testing format: voc, coco'},
+    {arg='frcnn_test_use_cache', type='boolean', default=false,
+     help='Save testing results to files during the mAP evaluation process.'},
 
     -------------------------------------------------------------------------------
     -- FRCNN data augment options
